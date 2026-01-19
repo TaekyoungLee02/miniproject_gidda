@@ -21,6 +21,9 @@ expo-env.d.ts
 # intellij idea
 .idea/
 
+# vscode
+.vscode/
+
 # Metro
 .metro-health-check*
 
