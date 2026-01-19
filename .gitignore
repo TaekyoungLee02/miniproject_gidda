@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# intellij idea
+.idea/
+
 # Metro
 .metro-health-check*
 
