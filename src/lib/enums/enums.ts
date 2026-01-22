@@ -5,3 +5,9 @@ export enum SearchType
     Time,
     Space,
 }
+
+export enum ModelType
+{
+    Image,
+    Text,
+}
