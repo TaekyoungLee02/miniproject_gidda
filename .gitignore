@@ -47,6 +47,3 @@ app-example
 # generated native folders
 /ios
 /android
-
-#models
-*.onnx.data
