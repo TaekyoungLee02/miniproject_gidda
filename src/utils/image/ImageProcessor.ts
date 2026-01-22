@@ -1,7 +1,6 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Service } from "@/src/lib/interfaces/service";
 
-export class ImageProcessorService implements Service {
+export class ImageProcessorService {
   
   /**
    * @param uri 원본 이미지 경로
