@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.wonderhorn.gidda"
+      "package": "com.wonderhorn.gidda",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -40,7 +41,8 @@
           }
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "onnxruntime-react-native",
     ],
     "experiments": {
       "typedRoutes": true,

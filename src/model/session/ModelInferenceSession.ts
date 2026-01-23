@@ -6,7 +6,7 @@ import * as Loader from '@/src/model/loadModel'
 
 export class ModelInferenceSession implements Model
 {
-    modelType : ModelType
+    modelType : ModelType;
     session : ort.InferenceSession;
     path : string;
     inputSize : number[];
@@ -19,7 +19,12 @@ export class ModelInferenceSession implements Model
         this.modelType = modelType;
         this.inputSize = inputSize;
         this.inputType = inputType;
-        this.path = Loader.prepareModel(modelType);
+    }
+
+    async initialize()
+    {
+        this.path = await Loader.prepareModel(this.modelType);
+        console.log(`path : ${this.path}`)
         this.session = ort.InferenceSession.create(this.path, { executionProviders: ["cpu"] });
         this.inputName = this.session.inputNames[0];
         this.outputName = this.session.outputNames[0];

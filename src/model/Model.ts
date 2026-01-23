@@ -18,15 +18,15 @@ export class TextEncoder extends Session.ModelInferenceSession
         this.tokenizer = new TextTokenizerSession();
     }
 
-    run(input : string)
+    async run(input : string)
     {
-        data = this.tokenizer.run(input)
+        data = await this.tokenizer.run(input)
         return super.run(data);
     }
 
-    runEnumerate(input : string[][])
+    async runEnumerate(input : string[][])
     {
-        datas = this.tokenizer.runEnumerate(input);
+        datas = await this.tokenizer.runEnumerate(input);
         return super.runEnumerate(datas);
     }
 }

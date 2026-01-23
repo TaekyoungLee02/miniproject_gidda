@@ -12,7 +12,11 @@ export class TextTokenizerSession
     outputName : string;
 
     constructor() {
-        this.path = Loader.prepareModel(ModelType.TextTokenizer);
+    }
+
+    async initialize()
+    {
+        this.path = await Loader.prepareModel(ModelType.TextTokenizer);
         this.session = ort.InferenceSession.create(this.path, { executionProviders: ["cpu"] });
         this.inputName = this.session.inputNames[0];
         this.outputName = this.session.outputNames[0];

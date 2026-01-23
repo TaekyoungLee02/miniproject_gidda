@@ -1,4 +1,4 @@
-import { File, Paths } from 'expo-file-system';
+import { File, Paths, Directory } from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
 import * as Constants from '@/src/lib/constatnts/constants'
@@ -16,11 +16,11 @@ const txtEncoderData : string = 'txt_encoder.onnx.data';
 const txtTokenizer : string = 'txt_encoder.onnx.data';
 
 const MODEL_MODULES = {
-    "img_encoder.onnx": imgEncoder,
-    "img_encoder.onnx.data": imgEncoderData,
-    "txt_encoder.onnx": txtEncoder,
-    "txt_encoder.onnx.data": txtEncoderData,
-    "txt_tokenizer.onnx": txtTokenizer,
+    "img_encoder.onnx": imgEncoderPath,
+    "img_encoder.onnx.data": imgEncoderDataPath,
+    "txt_encoder.onnx": txtEncoderPath,
+    "txt_encoder.onnx.data": txtEncoderDataPath,
+    "txt_tokenizer.onnx": txtTokenizerPath,
 } as const;
 
 // Change asset to local directory since onnxruntime-react-native requires local directory to run
@@ -96,14 +96,16 @@ export async function prepareModel(modelType : ModelType)
         return model.uri;
     }
 
+    console.log(model, info)
+
     // copy model if not exists
     try
     {
-        const loadedUri = await copyModelToLocalDirectory(modelName, modelPath);
+        const loadedUri = await copyModelToLocalDirectory(modelName);
 
         if (requiresData)
         {
-            await copyModelToLocalDirectory(modelDataName, modelDataPath);
+            await copyModelToLocalDirectory(modelDataName);
         }
 
         return loadedUri;
