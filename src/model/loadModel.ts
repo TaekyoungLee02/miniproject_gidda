@@ -11,6 +11,8 @@ const imgModelPath : string = `./asset/models/img_encoder/img_encoder.onnx`;
 const imgModelDataPath : string = `./asset/models/img_encoder/img_encoder.onnx.data`;
 const txtModelPath : string = `./asset/models/txt_encoder/txt_encoder.onnx`;
 const txtModelDataPath : string = `./asset/models/txt_encoder/txt_encoder.onnx.data`;
+const txtTokenizer : string = `txt_tokenizer.onnx`
+const txtTokenizerPath : string = `./asset/models/txt_encoder/txt_tokenizer/txt_tokenizer.onnx`
 
 // Change asset to local directory since onnxruntime-react-native requires local directory to run
 async function copyModelToLocalDirectory(loadingModel : string, modelPath : string)
@@ -60,6 +62,12 @@ async function prepareModel(modelType : ModelType)
             modelDataName = txtModelData;
             modelDataPath = txtModelDataPath;
             requiresData = true;
+            break;
+
+        case ModelType.TextTokenizer:
+            modelName = txtTokenizer;
+            modelPath = txtTokenizerPath;
+            requiresData = false;
             break;
     }
 
