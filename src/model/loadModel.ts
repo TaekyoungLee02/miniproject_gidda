@@ -3,30 +3,39 @@ import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
 import * as Constants from '@/src/lib/constatnts/constants'
 
-const imgModel : string = 'img_encoder.onnx';
-const txtModel : string = 'txt_encoder.onnx';
-const imgModelData : string = 'img_encoder.onnx.data';
-const txtModelData : string = 'txt_encoder.onnx.data';
-const imgModelPath : string = `./asset/models/img_encoder/img_encoder.onnx`;
-const imgModelDataPath : string = `./asset/models/img_encoder/img_encoder.onnx.data`;
-const txtModelPath : string = `./asset/models/txt_encoder/txt_encoder.onnx`;
-const txtModelDataPath : string = `./asset/models/txt_encoder/txt_encoder.onnx.data`;
-const txtTokenizer : string = `txt_tokenizer.onnx`
-const txtTokenizerPath : string = `./asset/models/txt_encoder/txt_tokenizer/txt_tokenizer.onnx`
+import imgEncoderPath from '@/assets/models/img_encoder/img_encoder.onnx'
+import imgEncoderDataPath from '@/assets/models/img_encoder/img_encoder.onnx.data'
+import txtEncoderPath from '@/assets/models/txt_encoder/txt_encoder.onnx'
+import txtEncoderDataPath from '@/assets/models/txt_encoder/txt_encoder.onnx.data'
+import txtTokenizerPath from '@/assets/models/txt_encoder/txt_tokenizer/txt_tokenizer.onnx'
+
+const imgEncoder : string = 'img_encoder.onnx';
+const txtEncoder : string = 'txt_encoder.onnx';
+const imgEncoderData : string = 'img_encoder.onnx.data';
+const txtEncoderData : string = 'txt_encoder.onnx.data';
+const txtTokenizer : string = 'txt_encoder.onnx.data';
+
+const MODEL_MODULES = {
+    "img_encoder.onnx": imgEncoder,
+    "img_encoder.onnx.data": imgEncoderData,
+    "txt_encoder.onnx": txtEncoder,
+    "txt_encoder.onnx.data": txtEncoderData,
+    "txt_tokenizer.onnx": txtTokenizer,
+} as const;
 
 // Change asset to local directory since onnxruntime-react-native requires local directory to run
-async function copyModelToLocalDirectory(loadingModel : string, modelPath : string)
+async function copyModelToLocalDirectory(modelName : string)
 {
     // Load asset from loadingModel
-    const asset = Asset.fromModule(require(loadingModel));
+    const asset = Asset.fromModule(MODEL_MODULES[modelName]);
     await asset.downloadAsync();
 
     // Check if loadingModel exists
-    if (!asset.localUri) throw new ReferenceError(`${loadingModel} does not exists.`);
+    if (!asset.localUri) throw new ReferenceError(`${modelName} does not exists.`);
 
     // Set copy destination
     const src = new File(asset.localUri);
-    const dst = new File(Paths.document, `models/${loadingModel}`);
+    const dst = new File(Paths.document, `models/${modelName}`);
 
     // Do not copy if file already exists
     const info = await dst.info();
@@ -38,35 +47,33 @@ async function copyModelToLocalDirectory(loadingModel : string, modelPath : stri
     return dst.uri;
 }
 
-async function prepareModel(modelType : ModelType)
+/**
+ * prepares model and returns model path
+ *
+ * @param modelType type of loading model
+ */
+export async function prepareModel(modelType : ModelType)
 {
     let modelName : string;
-    let modelPath : string;
     let modelDataName : string;
-    let modelDataPath : string;
     let requiresData : boolean = false;
 
     switch (modelType)
     {
         case ModelType.Image:
-            modelName = imgModel;
-            modelPath = imgModelPath;
-            modelDataName = imgModelData;
-            modelDataPath = imgModelDataPath;
+            modelName = imgEncoder;
+            modelDataName = imgEncoderData;
             requiresData = true;
             break;
 
         case ModelType.Text:
-            modelName = txtModel;
-            modelPath = txtModelPath;
-            modelDataName = txtModelData;
-            modelDataPath = txtModelDataPath;
+            modelName = txtEncoder;
+            modelDataName = txtEncoderData;
             requiresData = true;
             break;
 
         case ModelType.TextTokenizer:
             modelName = txtTokenizer;
-            modelPath = txtTokenizerPath;
             requiresData = false;
             break;
     }
