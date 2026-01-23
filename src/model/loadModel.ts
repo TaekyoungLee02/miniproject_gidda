@@ -1,6 +1,7 @@
 import { File, Paths } from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
+import * as Constants from '@/src/lib/constatnts/constants'
 
 const imgModel : string = 'img_encoder.onnx';
 const txtModel : string = 'txt_encoder.onnx';
