@@ -10,4 +10,5 @@ export enum ModelType
 {
     Image,
     Text,
+    TextTokenizer,
 }
