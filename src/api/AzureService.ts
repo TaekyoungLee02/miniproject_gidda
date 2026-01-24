@@ -1,0 +1,74 @@
+import { client } from "./AzureFoundry";
+import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from './constants/prompts';
+import { SearchAnalysisResult } from './types/analysis';
+import { SearchType } from '../lib/enums/enums';
+
+
+export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisResult | null> => {
+  try {
+    // 검색 시점의 날짜 생성 (예: 2024-05-20 월요일)
+    const now = new Date();
+    const currentDateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${['일','월','화','수','목','금','토'][now.getDay()]}요일`;
+
+    const response = await client.chat.completions.create({
+      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
+        { role: "user", content: query }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
+    });
+
+    const result = response.choices[0].message.content;
+    if (!result) return null;
+
+    const parsed = JSON.parse(result);
+    
+    return {
+      suitability: parsed.suitability,
+      // keywords: parsed.keywords,
+      entities: {
+        [SearchType.Context]: parsed.entities?.["0"] || [],
+        [SearchType.Time]: parsed.entities?.["1"] || [],
+        [SearchType.Space]: parsed.entities?.["2"] || [],
+      },
+      weights: {
+        [SearchType.Context]: parsed.weights?.["0"] || 0,
+        [SearchType.Time]: parsed.weights?.["1"] || 0,
+        [SearchType.Space]: parsed.weights?.["2"] || 0,
+      }
+    };
+  } catch (error) {
+    console.error("❌ Azure GPT 분석 실패:", error);
+    return null;
+  }
+};
+
+/**
+ * 백지연: 고도화 시 기능 추천합니다.
+ * 선택된 사진들의 정보를 바탕으로 AI가 앨범 제목을 추천합니다.
+ * @param photoData 사진들의 태그와 날짜 정보가 합쳐진 문자열
+ */
+export const generateAlbumTitles = async (photoData: string): Promise<string[]> => {
+  try {
+    const response = await client.chat.completions.create({
+      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+      messages: [
+        { role: "system", content: ALBUM_TITLE_PROMPT },
+        { role: "user", content: `다음 사진들에 어울리는 제목을 지어줘:\n${photoData}` }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.8, // 창의적인 제목을 위해 온도를 조금 높입니다!
+    });
+
+    const result = response.choices[0].message.content;
+    if (!result) return ["새 앨범"];
+
+    const parsed = JSON.parse(result);
+    return parsed.titles; // ["여름날의 추억", "제주 바다 나들이", "푸른 조각들"]
+  } catch (error) {
+    console.error("❌ 앨범 제목 생성 실패:", error);
+    return ["나의 앨범"];
+  }
+};
