@@ -1,31 +1,34 @@
-// DB 스키마와 1:1 매칭되는 핵심 인터페이스
-export interface Photo {
-    // [PK] 폰 갤러리 ID
-    id: string;
+import { dbRequest } from "@/src/lib/types/dbRequest"
 
-    // [Essential] 필수 데이터
-    local_uri: string;      // 파일 경로
-    captured_at: number;    // 촬영 시간 (Unix Timestamp)
-    width: number;          // UI 배치용 가로
-    height: number;         // UI 배치용 세로
-
-    // [Search] 검색용 데이터 (Optional)
-    latitude?: number;
-    longitude?: number;
-    address?: string;
-
-    // [AI] 분석 데이터
-    ai_tags?: string[];
-
-    // [Frontend Only] UI 상태값
-    score?: number;         // 유사도 점수 (0.0 ~ 1.0)
+/**
+ * [Photo 인터페이스]
+ * DB 스키마 및 앱 전반에서 사용하는 메인 데이터 구조
+ */
+export interface Photo extends dbRequest
+{
+  id: string;             // Expo ID (asset ID)
+  local_uri: string;      // 폰 내부 파일 경로 (file://...)
+  captured_at: number;    // 촬영 시간 (Unix Timestamp)
+  width: number;          // 이미지 너비
+  height: number;         // 이미지 높이
+  
+  // --- 분석 정보 (Nullable) ---
+  latitude: number | null;   // 위도
+  longitude: number | null;  // 경도
+  address: string | null;    // 역지오코딩 된 주소
+  
+  // --- AI 데이터 ---
+  ai_tags: string | null;    // MobileCLIP/MobileNet 태그 (콤마로 구분)
+  
+  // 중요: 벡터는 DB 내부의 vec0 테이블에 저장되므로
+  // 일반적인 조회 시에는 이 필드가 비어있을 수 있음.
+  embedding?: number[];     
 }
 
-export interface Album {
-    id: number;
-    title: string;
-    summary?: string;
-    photo_ids: string[];
-    cover_uri?: string;
-    created_at: number;
+/**
+ * [검색 결과 인터페이스]
+ * SQLite 벡터 검색 결과 (distance 값을 포함)
+ */
+export interface SearchResult extends Photo {
+  distance: number; // 코사인 거리 (0에 가까울수록 유사함)
 }
