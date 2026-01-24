@@ -8,14 +8,21 @@ import { Photo } from '../types';
 console.log("ENV CHECK", {
   endpoint: process.env.EXPO_PUBLIC_AZURE_ENDPOINT,
   deployment: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT,
-  apiKey: process.env.EXPO_PUBLIC_AZURE_API_KEY,
+  apiKey: process.env.EXPO_PUBLIC_AZURE_API_KEY ? '✅ Exists' : '❌ Missing',
 });
 
-export const identifyLocationFromTags = async (photo: Photo): Promise<string> => {
-  // 1. 방어 코드: 태그가 아예 없으면 GPT에게 물어볼 필요가 없음 (비용 절약)
+// 반환값 타입을 정의해주면 자동완성이 잘 돼서 편함
+interface LocationResult {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export const identifyLocationFromTags = async (photo: Photo): Promise<LocationResult | null> => {
+  //  방어 코드: 태그가 아예 없으면 GPT에게 물어볼 필요가 없음 (비용 절약)
   if (!photo.ai_tags || photo.ai_tags.trim() === '') {
     console.log(`⚠️ [Azure] ID(${photo.id})는 분석할 태그(ai_tags)가 없습니다. 스킵.`);
-    return '';
+    return null;
   }
   
   try {
@@ -42,7 +49,7 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
     }
 
     console.log(`🧠 [Azure] 장소 추리 요청 시작... (ID: ${photo.id})`);
-
+    
     const dateStr = new Date(photo.captured_at).toLocaleString();
     
     const locationHint = (photo.latitude && photo.longitude) 
@@ -65,10 +72,17 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
       - 위치 힌트: ${locationHint}
       
       [요청사항]
-      - 위 태그들을 조합했을 때 한국(또는 사용자가 자주 가는 곳) 내에서 가장 유력한 '구체적인 장소명' 하나만 말해줘.
+      - 위 태그들을 조합했을 때 한국(또는 사용자가 자주 가는 해외 여행지) 내에서 가장 유력한 '구체적인 장소명' 하나만 말해줘.
       - 만약 도저히 모르겠으면 'unknown'라고만 답해.
-      - 설명은 필요 없고 장소 이름만 딱 출력해. (예: 제주 성산일출봉)
+      - 그 장소의 대표적인 위도(latitude)와 경도(longitude) 좌표를 추정해.
       - 답변은 모두 영어 소문자로만 구성해.
+      - **반드시 아래 JSON 포맷으로만 답변해.** (다른 말 금지)
+
+      {
+        "name": "장소명 (예: jeju seongsan ilchulbong)",
+        "latitude": 33.458,
+        "longitude": 126.942
+      }
     `;
 
     const payload = {
@@ -82,7 +96,7 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
           content: userPrompt,
         },
       ],
-      max_tokens: 50, // 장소명만 받을 것이므로 짧게 설정 (비용 절약)
+      max_tokens: 200, // JSON이 잘리지 않도록 조금 넉넉하게 50 -> 200으로 늘림
       temperature: 0.3, // 창의성보다는 정확도 중시
     };
 
@@ -104,11 +118,16 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
     const data = await response.json();
     const inferredLocation = data.choices[0]?.message?.content?.trim();
 
-    console.log(`🧠 [Azure] 추론 완료: "${detectedTags}" -> 📍 ${inferredLocation}`);
-    return inferredLocation;
+    // 🆕 JSON 파싱 (문자열 -> 객체 변환)
+    // 가끔 GPT가 ```json ... ``` 같은 마크다운을 붙일 때가 있어서 제거 처리
+    const cleanJson = inferredLocation.replace(/```json|```/g, '').trim();
+    const result: LocationResult = JSON.parse(cleanJson);
+
+    console.log(`🧠 [Azure] 추론 성공: ${result.name} (${result.latitude}, ${result.longitude})`);
+    return result;
 
   } catch (error) {
     console.error('❌ [Azure] 위치 추론 중 에러 발생:', error);
-    return '';
+    return null;
   }
 };

@@ -77,25 +77,6 @@ export const getAllPhotos = async (): Promise<Photo[]> => {
   }
 };
 
-/**
- * 🆕 [추가] AI 분석 결과(위치 추론)를 DB에 반영하는 함수
- * GPT가 "이곳은 제주도 성산일출봉입니다"라고 답하면,
- * 해당 사진의 address 컬럼을 업데이트한다.
- * (추후 위도/경도까지 안다면 latitude, longitude도 업데이트 가능)
- */
-export const updatePhotoLocation = async (id: string, locationName: string): Promise<void> => {
-  try {
-    // 쿼리 설명: photos 테이블에서 id가 일치하는 행의 address 값을 변경함.
-    await db.runAsync(
-      `UPDATE photos SET address = ? WHERE id = ?;`,
-      [locationName, id]
-    );
-    console.log(`✅ [DB] 위치 추론 업데이트 완료 (ID: ${id}) -> ${locationName}`);
-  } catch (error) {
-    console.error(`❌ [DB] 위치 업데이트 실패 (ID: ${id}):`, error);
-  }
-};
-
 // 👇👇👇 [복구된 함수들] 👇👇👇
 
 /**
@@ -117,36 +98,82 @@ export const getNoGpsPhotos = async (limit: number = 50): Promise<Photo[]> => {
 };
 
 /**
- * 5. 특정 사진의 주소(Address) 업데이트
- * - LLM이나 Geocoding으로 알아낸 주소를 DB에 저장할 때 사용합니다.
+ * 🆕 [추가] AI 분석 결과(위치 추론)를 DB에 반영하는 함수
+ * GPT가 "이곳은 제주도 성산일출봉입니다"라고 답하면,
+ * 해당 사진의 address 컬럼을 업데이트한다.
+ * 🆕 [업그레이드] 위치 추론 결과(주소 + 좌표)를 DB에 반영하는 함수
+ * 이제 주소뿐만 아니라 위도(lat), 경도(lon)도 함께 업데이트한다.
  */
-export const updatePhotoAddress = async (id: string, address: string): Promise<void> => {
-  try {
-    db.runSync(
-      `UPDATE photos SET address = ? WHERE id = ?;`,
-      [address, id]
+export const updatePhotoLocation = async (
+  id: string, 
+  address: string, 
+  latitude: number, 
+  longitude: number
+): Promise<void> => {
+ try {
+    // 쿼리 설명: 
+    // photos 테이블에서 id가 일치하는 행을 찾아서
+    // address, latitude, longitude 3개 컬럼을 동시에 수정함.
+    await db.runAsync(
+      `UPDATE photos SET address = ?, latitude = ?, longitude = ? WHERE id = ?;`,
+      [address, latitude, longitude, id]
     );
-    console.log(`✅ [DB] 주소 업데이트 완료 (ID: ${id}) -> ${address}`);
+    console.log(`✅ [DB] 위치 정보 풀세트 업데이트 (ID: ${id}) -> ${address} (${latitude}, ${longitude})`);
   } catch (error) {
-    console.error(`❌ [DB] 주소 업데이트 실패 (ID: ${id})`, error);
-    throw error;
+    console.error(`❌ [DB] 위치 업데이트 실패 (ID: ${id}):`, error);
   }
 };
+
+/**
+ * 🆕 [추가] MobileCLIP이 분석한 태그를 DB에 저장하는 함수
+ * 위치 추론(GPT)을 위해 필요한 텍스트 단서들을 저장한다.
+ */
+export const updatePhotoTags = async (id: string, tags: string): Promise<void> => {
+  try {
+    await db.runAsync(
+      `UPDATE photos SET ai_tags = ? WHERE id = ?;`,
+      [tags, id]
+    );
+    console.log(`🏷️ [DB] 태그 저장 완료 (ID: ${id}) -> ${tags}`);
+  } catch (error) {
+    console.error(`❌ [DB] 태그 저장 실패 (ID: ${id}):`, error);
+    throw error; // 여기서 실패하면 뒤에 GPT 단계로 넘어가면 안 되니까 에러를 던짐
+  }
+};
+
+
+
+// /**
+//  * 5. 특정 사진의 주소(Address) 업데이트
+//  * - LLM이나 Geocoding으로 알아낸 주소를 DB에 저장할 때 사용합니다.
+//  */
+// export const updatePhotoAddress = async (id: string, address: string): Promise<void> => {
+//   try {
+//     db.runSync(
+//       `UPDATE photos SET address = ? WHERE id = ?;`,
+//       [address, id]
+//     );
+//     console.log(`✅ [DB] 주소 업데이트 완료 (ID: ${id}) -> ${address}`);
+//   } catch (error) {
+//     console.error(`❌ [DB] 주소 업데이트 실패 (ID: ${id})`, error);
+//     throw error;
+//   }
+// };
 
 /**
  * (보너스) 태그(AI Tags) 업데이트 함수
  * - 혹시 analysisService에서 태그도 저장해야 한다면 이 함수를 쓰세요.
  */
-export const updatePhotoTags = async (id: string, tags: string[]): Promise<void> => {
-  try {
-    const tagsJson = JSON.stringify(tags);
-    db.runSync(
-      `UPDATE photos SET ai_tags = ? WHERE id = ?;`,
-      [tagsJson, id]
-    );
-    console.log(`✅ [DB] 태그 업데이트 완료 (ID: ${id})`);
-  } catch (error) {
-    console.error(`❌ [DB] 태그 업데이트 실패 (ID: ${id})`, error);
-    throw error;
-  }
-};
+// export const updatePhotoTags = async (id: string, tags: string[]): Promise<void> => {
+//   try {
+//     const tagsJson = JSON.stringify(tags);
+//     db.runSync(
+//       `UPDATE photos SET ai_tags = ? WHERE id = ?;`,
+//       [tagsJson, id]
+//     );
+//     console.log(`✅ [DB] 태그 업데이트 완료 (ID: ${id})`);
+//   } catch (error) {
+//     console.error(`❌ [DB] 태그 업데이트 실패 (ID: ${id})`, error);
+//     throw error;
+//   }
+// };

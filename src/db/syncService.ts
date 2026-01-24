@@ -1,4 +1,6 @@
 // src/services/syncService.ts
+// DB에 실시간으로 사진을 업데이트 하는 기능을 하는 스크립트
+
 import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { insertPhoto } from './database';
