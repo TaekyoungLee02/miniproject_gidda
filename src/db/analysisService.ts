@@ -1,5 +1,5 @@
 // src/services/analysisService.ts
-import { getNoGpsPhotos, updatePhotoAddress, insertPhoto } from '@/src/db/database';
+import { getNoGpsPhotos, updatePhotoAddress, insertPhoto } from './database';
 
 /**
  * [테스트용] 가짜 사진 데이터 주입 함수

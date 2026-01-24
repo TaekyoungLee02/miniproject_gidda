@@ -1,18 +1,16 @@
 // src/services/database.ts
 import * as SQLite from 'expo-sqlite';
-import { Photo } from '@/src/lib/types/photo';
+import { Photo } from '../types';
 
 // 1. 최신 방식: 동기식(Sync) DB 열기
-// 구버전 openDatabase -> 신버전 openDatabaseSync
 const db = SQLite.openDatabaseSync('photos.db');
 
 /**
  * 1. 테이블 초기화
- * - execSync를 사용하면 긴 SQL도 한 번에 실행 가능합니다.
  */
 export const initDB = async (): Promise<void> => {
   try {
-    // 개발 중 스키마 꼬임 방지를 위해 기존 테이블 삭제 (필요시 주석 해제)
+    // 개발 중 스키마 꼬임 방지 (필요시 주석 해제)
     // db.execSync('DROP TABLE IF EXISTS photos;');
 
     db.execSync(`
@@ -37,42 +35,35 @@ export const initDB = async (): Promise<void> => {
 
 /**
  * 2. 사진 데이터 삽입/업데이트
- * - runSync를 사용하여 결과를 즉시 반환받습니다.
  */
 export const insertPhoto = async (photo: Photo): Promise<void> => {
   try {
-    // undefined 방지 (Sanitizing)
     const safeArgs = [
-      photo.id ?? '',                // TEXT
-      photo.local_uri ?? '',         // TEXT
-      photo.captured_at ?? Date.now(), // INTEGER
-      photo.width ?? 0,              // INTEGER
-      photo.height ?? 0,             // INTEGER
-      photo.latitude ?? null,        // REAL
-      photo.longitude ?? null,       // REAL
-      photo.address ?? null,         // TEXT
-      photo.ai_tags ? JSON.stringify(photo.ai_tags) : null, // TEXT
+      photo.id ?? '',
+      photo.local_uri ?? '',
+      photo.captured_at ?? Date.now(),
+      photo.width ?? 0,
+      photo.height ?? 0,
+      photo.latitude ?? null,
+      photo.longitude ?? null,
+      photo.address ?? null,
+      photo.ai_tags ? JSON.stringify(photo.ai_tags) : null,
     ];
 
-    // transaction(tx => ...) 콜백 방식이 사라지고, 바로 실행합니다.
     db.runSync(
       `INSERT OR REPLACE INTO photos (
         id, local_uri, captured_at, width, height, latitude, longitude, address, ai_tags
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       safeArgs
     );
-
-    // 성공 시 별도 로그 없이 리턴 (속도 향상)
   } catch (error) {
     console.error(`❌ [DB] 저장 실패 (ID: ${photo.id})`, error);
-    // 에러를 던져야 호출하는 쪽에서 알 수 있음
     throw error;
   }
 };
 
 /**
  * 3. 전체 조회 (테스트용)
- * - getAllSync를 사용하면 배열로 바로 줍니다.
  */
 export const getAllPhotos = async (): Promise<Photo[]> => {
   try {
@@ -83,5 +74,60 @@ export const getAllPhotos = async (): Promise<Photo[]> => {
   } catch (error) {
     console.error('❌ [DB] 조회 실패:', error);
     return [];
+  }
+};
+
+// 👇👇👇 [복구된 함수들] 👇👇👇
+
+/**
+ * 4. GPS 정보(위도/경도)가 없는 사진 조회
+ * - limit 인자를 받아서 한 번에 가져올 개수를 조절합니다. (기본값 50)
+ */
+export const getNoGpsPhotos = async (limit: number = 50): Promise<Photo[]> => {
+  try {
+    // LIMIT ? 구문을 추가하고, 파라미터로 limit 숫자를 넘깁니다.
+    const rows = db.getAllSync<Photo>(
+      `SELECT * FROM photos WHERE latitude IS NULL OR longitude IS NULL LIMIT ?;`,
+      [limit]
+    );
+    return rows;
+  } catch (error) {
+    console.error('❌ [DB] GPS 없는 사진 조회 실패:', error);
+    return [];
+  }
+};
+
+/**
+ * 5. 특정 사진의 주소(Address) 업데이트
+ * - LLM이나 Geocoding으로 알아낸 주소를 DB에 저장할 때 사용합니다.
+ */
+export const updatePhotoAddress = async (id: string, address: string): Promise<void> => {
+  try {
+    db.runSync(
+      `UPDATE photos SET address = ? WHERE id = ?;`,
+      [address, id]
+    );
+    console.log(`✅ [DB] 주소 업데이트 완료 (ID: ${id}) -> ${address}`);
+  } catch (error) {
+    console.error(`❌ [DB] 주소 업데이트 실패 (ID: ${id})`, error);
+    throw error;
+  }
+};
+
+/**
+ * (보너스) 태그(AI Tags) 업데이트 함수
+ * - 혹시 analysisService에서 태그도 저장해야 한다면 이 함수를 쓰세요.
+ */
+export const updatePhotoTags = async (id: string, tags: string[]): Promise<void> => {
+  try {
+    const tagsJson = JSON.stringify(tags);
+    db.runSync(
+      `UPDATE photos SET ai_tags = ? WHERE id = ?;`,
+      [tagsJson, id]
+    );
+    console.log(`✅ [DB] 태그 업데이트 완료 (ID: ${id})`);
+  } catch (error) {
+    console.error(`❌ [DB] 태그 업데이트 실패 (ID: ${id})`, error);
+    throw error;
   }
 };

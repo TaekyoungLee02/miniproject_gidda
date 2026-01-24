@@ -2,7 +2,7 @@
 import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { insertPhoto } from './database';
-import { Photo } from '@/src/lib/types/photo';
+import { Photo } from '../types';
 
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
