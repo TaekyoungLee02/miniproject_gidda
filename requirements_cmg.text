@@ -1,0 +1,88 @@
+# 🛠️ Gid-da Project Requirements List
+
+## 1. 💻 개발 환경 (Development Environment)
+
+> Base System
+> 
+- **Node.js**: v18.0.0 (LTS) 이상 (Expo SDK 50+ 호환용)
+- **npm** or **yarn**: 패키지 매니저
+- **Git**: 형상 관리
+- **VS Code**: 통합 개발 환경 (Recommended Extensions: ES7+, Prettier, Python)
+
+> Mobile Build (Android)
+> 
+- **Java Development Kit (JDK)**: version 17 (Microsoft OpenJDK 권장)
+- **Android Studio**:
+    - SDK Platforms: Android 14.0 (API 34) 이상
+    - SDK Tools: Android SDK Build-Tools 34.0.0
+    - Emulator: Pixel 6 or 7 (API 34)
+
+## 2. 📱 프론트엔드 (Frontend - Expo/React Native)
+
+> Core Framework
+> 
+- **Expo CLI**: `npm install -g expo-cli`
+- **React Native**: 0.73+ (Expo SDK 50 기준)
+
+> Dependencies (npm/yarn)현재 코드(package.json) 기반 설치 목록
+> 
+
+```
+# 1. Expo 기본 및 파일 시스템
+npx expo install expo-file-system
+npx expo install expo-media-library
+
+# 2. 로컬 데이터베이스 (SQLite)
+npx expo install expo-sqlite
+
+# 3. 네트워크 통신 (백엔드 연동용)
+npm install axios
+
+# 4. UI/UX 유틸리티 (권장)
+npm install react-native-safe-area-context
+npm install react-native-screens
+
+```
+
+## 3. 🧠 백엔드 & AI (Backend & AI Model)
+
+> Python Environment
+> 
+- **Python**: 3.10 이상 (Torch/FastAPI 호환성 고려)
+- **Virtual Environment**: `venv` 또는 `conda` 사용 권장
+
+> Dependencies (pip)기획서 및 아키텍처(MobileCLIP, OCR, FastAPI) 기반 필수 라이브러리
+> 
+
+```
+# 1. 웹 프레임워크 (API 서버)
+pip install fastapi uvicorn[standard]
+pip install python-multipart  # 이미지 업로드 처리에 필수
+
+# 2. 데이터 처리 및 유틸리티
+pip install pandas numpy requests pydantic
+
+# 3. AI 모델 (MobileCLIP / OCR / Torch)
+# (CPU 버전 설치 예시 - GPU 사용 시 명령어 변경 필요)
+pip install torch torchvision torchaudio
+pip install open_clip_torch  # MobileCLIP 구현체
+pip install pillow           # 이미지 처리
+pip install easyocr          # (선택) OCR 엔진
+
+# 4. LLM 연동 (OpenAI / Azure)
+pip install openai
+pip install python-dotenv    # .env 환경변수 관리
+
+```
+
+## 4. 🗄️ 데이터베이스 및 도구 (Database & Tools)
+
+- **SQLite Browser (DB Browser for SQLite)**: `.db` 파일 디버깅용 PC 소프트웨어
+- **Postman** or **Insomnia**: API 테스트 도구
+- **ngrok**: 로컬 호스트(localhost)를 외부(모바일 기기)에서 접속하기 위한 터널링 도구 (필수)
+
+## 5. 📝 협업 및 문서화 (Collaboration)
+
+- **Notion**: 기획서 및 일정 관리
+- **Figma**: UI 디자인
+- **GitHub**: 소스코드 저장소

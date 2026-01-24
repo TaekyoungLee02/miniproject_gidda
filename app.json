@@ -39,6 +39,16 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      "expo-font",
+      "expo-sqlite",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "앱에서 사진에 접근하려면 권한이 필요합니다.",
+          "saveToPhotosPermission": "앱에서 사진을 저장하려면 권한이 필요합니다.",
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {
