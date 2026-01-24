@@ -2,6 +2,7 @@ import { Photo } from '../types';
 
 /**
  * 🕵️‍♂️ DB의 태그와 메타데이터를 보고 '장소(관광지)'를 추리하는 함수
+ * * @param photo 분석할 사진 객체 (ai_tags가 반드시 포함되어야 함)
  */
 
 console.log("ENV CHECK", {
@@ -11,6 +12,12 @@ console.log("ENV CHECK", {
 });
 
 export const identifyLocationFromTags = async (photo: Photo): Promise<string> => {
+  // 1. 방어 코드: 태그가 아예 없으면 GPT에게 물어볼 필요가 없음 (비용 절약)
+  if (!photo.ai_tags || photo.ai_tags.trim() === '') {
+    console.log(`⚠️ [Azure] ID(${photo.id})는 분석할 태그(ai_tags)가 없습니다. 스킵.`);
+    return '';
+  }
+  
   try {
     // 1. [핵심 수정] 변수 선언을 함수 안으로 이동! (버튼 누를 때 읽기 위함)
     const ENDPOINT = process.env.EXPO_PUBLIC_AZURE_AI_FOUNDRY_ENDPOINT;
@@ -42,36 +49,41 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
       ? `(참고 GPS: 위도 ${photo.latitude}, 경도 ${photo.longitude})` 
       : '(GPS 정보 없음)';
 
-    // 테스트용 태그 (아직 DB에 태그가 없으므로)
-    const detectedTags = '화산, 돌담, 바다, 해, 귤, 석상, 제주도';
+    // // 테스트용 태그 (아직 DB에 태그가 없으므로)
+    // const detectedTags = '화산, 돌담, 바다, 해, 귤, 석상, 제주도';
+
+    // 3. 🆕 [핵심 변경] 실제 DB에 저장된 태그 사용
+    // DB에는 "sea, sky, rock" 처럼 저장되어 있을 수 있음.
+    const detectedTags = photo.ai_tags;
 
     const userPrompt = `
-      내가 가진 사진의 태그 정보를 줄게. 이걸 보고 여기가 어디인지(어떤 관광지인지) 맞춰봐.
+      나는 여행 사진의 위치를 찾고 있어. 아래 정보를 단서로 여기가 어디인지 추리해줘.
       
-      [단서]
-      1. 태그 목록: ${detectedTags}
-      2. 촬영 시간: ${dateStr}
-      3. 위치 힌트: ${locationHint}
+      [정보]
+      - 시각적 특징(Tags): ${detectedTags}
+      - 촬영 날짜: ${dateStr}
+      - 위치 힌트: ${locationHint}
       
       [요청사항]
-      - 위 태그들의 조합으로 보았을 때 가장 가능성이 높은 '장소명'이나 '지역명'을 알려줘.
-      - 왜 그렇게 생각했는지 1줄로 짧게 이유도 덧붙여줘.
-      - 답변 형식: "이곳은 [장소명]인 것 같습니다. (이유)"
+      - 위 태그들을 조합했을 때 한국(또는 사용자가 자주 가는 곳) 내에서 가장 유력한 '구체적인 장소명' 하나만 말해줘.
+      - 만약 도저히 모르겠으면 'unknown'라고만 답해.
+      - 설명은 필요 없고 장소 이름만 딱 출력해. (예: 제주 성산일출봉)
+      - 답변은 모두 영어 소문자로만 구성해.
     `;
 
     const payload = {
       messages: [
         {
           role: 'system',
-          content: '당신은 사진의 태그 정보만 보고 촬영 장소와 관광지를 정확하게 유추하는 여행 전문가 AI입니다. 한국어로 답변하세요.',
+          content: '당신은 사진의 메타데이터와 태그를 분석하여 촬영 장소를 정확히 맞추는 AI 탐정입니다.',
         },
         {
           role: 'user',
           content: userPrompt,
         },
       ],
-      max_tokens: 150,
-      temperature: 0.3,
+      max_tokens: 50, // 장소명만 받을 것이므로 짧게 설정 (비용 절약)
+      temperature: 0.3, // 창의성보다는 정확도 중시
     };
 
     const response = await fetch(URL, {
@@ -83,19 +95,20 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<string> =>
       body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('❌ [Azure Error]', data);
-      throw new Error(data.error?.message || 'Azure API 호출 실패');
+   if (!response.ok) {
+      const errData = await response.json();
+      console.error('❌ [Azure] API 호출 오류:', errData);
+      throw new Error(`Azure API Error: ${response.status}`);
     }
 
-    const aiAnswer = data.choices[0].message.content;
-    console.log('✅ [Azure] 추리 완료:', aiAnswer);
-    return aiAnswer;
+    const data = await response.json();
+    const inferredLocation = data.choices[0]?.message?.content?.trim();
+
+    console.log(`🧠 [Azure] 추론 완료: "${detectedTags}" -> 📍 ${inferredLocation}`);
+    return inferredLocation;
 
   } catch (error) {
-    console.error('❌ [Azure] 추리 실패:', error);
-    throw error;
+    console.error('❌ [Azure] 위치 추론 중 에러 발생:', error);
+    return '';
   }
 };

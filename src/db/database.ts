@@ -77,6 +77,25 @@ export const getAllPhotos = async (): Promise<Photo[]> => {
   }
 };
 
+/**
+ * 🆕 [추가] AI 분석 결과(위치 추론)를 DB에 반영하는 함수
+ * GPT가 "이곳은 제주도 성산일출봉입니다"라고 답하면,
+ * 해당 사진의 address 컬럼을 업데이트한다.
+ * (추후 위도/경도까지 안다면 latitude, longitude도 업데이트 가능)
+ */
+export const updatePhotoLocation = async (id: string, locationName: string): Promise<void> => {
+  try {
+    // 쿼리 설명: photos 테이블에서 id가 일치하는 행의 address 값을 변경함.
+    await db.runAsync(
+      `UPDATE photos SET address = ? WHERE id = ?;`,
+      [locationName, id]
+    );
+    console.log(`✅ [DB] 위치 추론 업데이트 완료 (ID: ${id}) -> ${locationName}`);
+  } catch (error) {
+    console.error(`❌ [DB] 위치 업데이트 실패 (ID: ${id}):`, error);
+  }
+};
+
 // 👇👇👇 [복구된 함수들] 👇👇👇
 
 /**
