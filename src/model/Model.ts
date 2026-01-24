@@ -2,6 +2,9 @@ import { ModelType } from '@/src/lib/enums/enums'
 import { TextTokenizerSession } from '@/src/model/session/TextTokenizerSession'
 import * as Session from '@/src/model/session/ModelInferenceSession'
 
+/**
+ *  Encodes Images
+ */
 export class ImageEncoder extends Session.ModelInferenceSession
 {
     constructor() {
@@ -9,8 +12,13 @@ export class ImageEncoder extends Session.ModelInferenceSession
     }
 }
 
+
+/**
+ *  Encodes Texts
+ */
 export class TextEncoder extends Session.ModelInferenceSession
 {
+    // text tokenizer session
     tokenizer : TextTokenizerSession;
 
     constructor() {
@@ -18,15 +26,21 @@ export class TextEncoder extends Session.ModelInferenceSession
         this.tokenizer = new TextTokenizerSession();
     }
 
-    async run(input : string)
-    {
-        data = await this.tokenizer.run(input)
-        return super.run(data);
+    async initialize(): Promise<void> {
+        await super.initialize();
+        await this.tokenizer.initialize();
     }
 
-    async runEnumerate(input : string[][])
+    async run(input : string)
     {
-        datas = await this.tokenizer.runEnumerate(input);
+        let data = await this.tokenizer.run(input)
+        const output = await super.run(data);
+        return output[this.outputName][this.outputLocationName];
+    }
+
+    async runEnumerate(input : string[])
+    {
+        let datas = await this.tokenizer.runEnumerate(input);
         return super.runEnumerate(datas);
     }
 }

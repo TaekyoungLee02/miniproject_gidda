@@ -1,49 +1,70 @@
-import { Model } from '@/src/lib/interfaces/model'
-import { ModelType } from '@/src/lib/enums/enums'
+import {PAD_SIZE} from '@/src/lib/constatnts/constants'
+import {ModelType} from '@/src/lib/enums/enums'
 import * as ort from 'onnxruntime-react-native'
 import * as Loader from '@/src/model/loadModel'
 
+
+/**
+ *  Tokenizes Text
+ */
 export class TextTokenizerSession
 {
+    // ort Session
     session : ort.InferenceSession;
+
+    // model local path
     path : string;
+
+    // current encoding input
     currentInput : ort.Tensor;
+
+    // input name that model can read
     inputName : string;
+
+    // output name that model gives
     outputName : string;
 
-    constructor() {
-    }
+    // cpu
+    outputLocationName : string;
 
+    // initialize ort.InferenceSession
     async initialize()
     {
         this.path = await Loader.prepareModel(ModelType.TextTokenizer);
-        this.session = ort.InferenceSession.create(this.path, { executionProviders: ["cpu"] });
+        this.session = await ort.InferenceSession.create(this.path, { executionProviders: ["cpu"] });
         this.inputName = this.session.inputNames[0];
         this.outputName = this.session.outputNames[0];
+        this.outputLocationName = 'cpuData';
     }
 
+    // pad rest space when return tokenized data
     pad(token : number[])
     {
-
-
+        return [
+            ...token,
+            ...Array(Math.max(0, PAD_SIZE - token.length)).fill(0)
+        ];
     }
 
+    // tokenizes data
     async run(data : string)
     {
-        this.currentInput = new ort.Tensor('string', data);
+        // Debugged with Object.keys() and Object.entries()
+        this.currentInput = new ort.Tensor('string', Array<string>(data));
         const outputs = await this.session.run({ [this.inputName] : this.currentInput });
-        return outputs[0];
+        return this.pad(outputs[this.outputName][this.outputLocationName]);
     }
 
-    async run(datas : string[])
+    // tokenizes data Array
+    async runEnumerate(datas : string[])
     {
-        outputs = [];
-        for(data of datas)
+        let outputs = []
+
+        for (data of datas)
         {
-            this.currentInput = new ort.Tensor('string', data);
+            this.currentInput = new ort.Tensor('string', Array<string>(data));
             const output = await this.session.run({ [this.inputName] : this.currentInput });
-            console.log(output);
-            outputs.push(output[0]);
+            outputs.push(this.pad(output[this.outputName][this.outputDeviceName]))
         }
 
         return outputs;
