@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.wonderhorn.gidda"
+      "package": "com.wonderhorn.gidda",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -40,6 +41,8 @@
           }
         }
       ],
+      "expo-asset",
+      "onnxruntime-react-native",
       "expo-sqlite",
       "expo-asset"
     ],

@@ -1,93 +1,96 @@
-import { File, Paths } from 'expo-file-system';
+import { File, Paths, Directory } from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
+import * as Constants from '@/src/lib/constatnts/constants'
 
-const imgModel : string = 'img_encoder.onnx';
-const txtModel : string = 'txt_encoder.onnx';
-const imgModelData : string = 'img_encoder.onnx.data';
-const txtModelData : string = 'txt_encoder.onnx.data';
-const imgModelPath : string = `./asset/models/img_encoder/img_encoder.onnx`;
-const imgModelDataPath : string = `./asset/models/img_encoder/img_encoder.onnx.data`;
-const txtModelPath : string = `./asset/models/txt_encoder/txt_encoder.onnx`;
-const txtModelDataPath : string = `./asset/models/txt_encoder/txt_encoder.onnx.data`;
-
-// Change asset to local directory since onnxruntime-react-native requires local directory to run
-async function copyModelToLocalDirectory(loadingModel : string, modelPath : string)
+/** Change asset to local directory since onnxruntime-react-native requires local directory to run
+ *
+ * @param modelName Filename of the Model which wants to load
+ */
+async function copyModelToLocalDirectory(modelName : string)
 {
-    // Load asset from loadingModel
-    const asset = Asset.fromModule(require(loadingModel));
+    // Load asset from modelName
+    const asset = Asset.fromModule(Constants.MODEL_MODULES[modelName]);
+
+    // downloadAsync() copies model from assets to local directory
     await asset.downloadAsync();
 
-    // Check if loadingModel exists
-    if (!asset.localUri) throw new ReferenceError(`${loadingModel} does not exists.`);
+    // Check if model copy successes
+    if (!asset.localUri) throw new ReferenceError(`${modelName} does not exists.`);
 
-    // Set copy destination
+    // Set move destination
     const src = new File(asset.localUri);
-    const dst = new File(Paths.document, `models/${loadingModel}`);
+    const dst = new File(Paths.document, `models/${modelName}`);
 
-    // Do not copy if file already exists
-    const info = await dst.info();
+    // Do not move if file already exists
+    const info = dst.info();
     if (!info.exists) {
-        await src.copy(dst);
+        src.move(dst);
     }
 
     // return file uri due to use in onnxruntime-react-native
     return dst.uri;
 }
 
-async function prepareModel(modelType : ModelType)
+/**
+ * Prepares Model and returns Model path
+ *
+ * @param modelType type of loading Model
+ */
+export async function prepareModel(modelType : ModelType)
 {
     let modelName : string;
-    let modelPath : string;
-    let modelDataName : string;
-    let modelDataPath : string;
-    let requiresData : boolean = false;
+    let modelDataName : string | undefined;
 
+    // Set Model path from Constants
     switch (modelType)
     {
         case ModelType.Image:
-            modelName = imgModel;
-            modelPath = imgModelPath;
-            modelDataName = imgModelData;
-            modelDataPath = imgModelDataPath;
-            requiresData = true;
+            modelName = Constants.imgEncoder;
+            modelDataName = Constants.imgEncoderData;
             break;
 
         case ModelType.Text:
-            modelName = txtModel;
-            modelPath = txtModelPath;
-            modelDataName = txtModelData;
-            modelDataPath = txtModelDataPath;
-            requiresData = true;
+            modelName = Constants.txtEncoder;
+            modelDataName = Constants.txtEncoderData;
+            break;
+
+        case ModelType.TextTokenizer:
+            modelName = Constants.txtTokenizer;
             break;
     }
 
-    // make models directory if not exists
+    // Make /models directory if not exists
     const modelsDir = new Directory(Paths.document, "models");
-    const dirInfo = await modelsDir.info();
+    const dirInfo = modelsDir.info();
     if (!dirInfo.exists)
     {
-        await modelsDir.create({ intermediates: true });
+        modelsDir.create({ intermediates: true });
     }
 
-    // load Model
-    const model = new File(modelsDir, `models/${modelName}`);
-    const info = await model.info();
+    // Check if model already exists
+    const model = new File(modelsDir, `${modelName}`);
+    const info = model.info();
 
     // return uri if model exists
     if (info.exists)
     {
+        console.log(`model uri : ${model.uri}`)
         return model.uri;
     }
 
     // copy model if not exists
     try
     {
-        const loadedUri = await copyModelToLocalDirectory(modelName, modelPath);
+        // Model file
+        const loadedUri = await copyModelToLocalDirectory(modelName);
+        console.log(`loadedUri : ${loadedUri}`)
 
-        if (requiresData)
+        // Data file (if needed)
+        if (modelDataName)
         {
-            await copyModelToLocalDirectory(modelDataName, modelDataPath);
+            const loadedData = await copyModelToLocalDirectory(modelDataName);
+            console.log(`loadedData : ${loadedData}`)
         }
 
         return loadedUri;
