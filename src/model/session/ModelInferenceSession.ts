@@ -55,7 +55,6 @@ export abstract class ModelInferenceSession implements Model
     // get encoded vector
     async run(data : number[])
     {
-        console.log(`${data.length}`)
         this.currentInput = new ort.Tensor(this.inputType, data, this.inputSize);
         const output = await this.session.run({[this.inputName]: this.currentInput});
         return output[this.outputName][this.outputLocationName]

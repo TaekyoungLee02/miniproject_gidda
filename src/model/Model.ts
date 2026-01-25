@@ -34,8 +34,7 @@ export class TextEncoder extends Session.ModelInferenceSession
     async run(input : string)
     {
         let data = await this.tokenizer.run(input)
-        const output = await super.run(data);
-        return output[this.outputName][this.outputLocationName];
+        return await super.run(data);
     }
 
     async runEnumerate(input : string[])
