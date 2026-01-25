@@ -53,19 +53,23 @@ export abstract class ModelInferenceSession implements Model
     }
 
     // get encoded vector
-    async run(data : number[])
+    async run(data : any)
     {
+        if (!this.session) await this.initialize();
+
         this.currentInput = new ort.Tensor(this.inputType, data, this.inputSize);
         const output = await this.session.run({[this.inputName]: this.currentInput});
         return output[this.outputName][this.outputLocationName]
     }
 
     // get encoded vector Enumerate
-    async *runEnumerate(datas : number[][])
+    async *runEnumerate(data : any[])
     {
-        for(data of datas)
+        if (!this.session) await this.initialize();
+
+        for(let d of data)
         {
-            this.currentInput = new ort.Tensor(this.inputType, data, this.inputSize);
+            this.currentInput = new ort.Tensor(this.inputType, d, this.inputSize);
             const output = await this.session.run({ [this.inputName] : this.currentInput });
             yield output[this.outputName][this.outputLocationName];
         }
