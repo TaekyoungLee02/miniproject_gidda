@@ -72,12 +72,20 @@ export async function prepareModel(modelType : ModelType)
     const model = new File(modelsDir, `${modelName}`);
     const info = model.info();
 
+    const modelData = new File(modelsDir, `${modelDataName}`);
+    const dataInfo = modelData.info();
+
     // return uri if model exists
-    if (info.exists)
+    const ready = modelDataName
+        ? info.exists && dataInfo.exists
+        : info.exists;
+
+    if (ready)
     {
         console.log(`model uri : ${model.uri}`)
         return model.uri;
     }
+
 
     // copy model if not exists
     try
