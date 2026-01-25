@@ -64,7 +64,7 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<LocationRe
     const detectedTags = photo.ai_tags;
 
     const userPrompt = `
-      나는 여행 사진의 위치를 찾고 있어. 아래 정보를 단서로 여기가 어디인지 추리해줘.
+      나는 사진의 위치를 찾고 있어. 아래 정보를 단서로 여기가 어디인지 추리해줘.
       
       [정보]
       - 시각적 특징(Tags): ${detectedTags}
