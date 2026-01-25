@@ -19,3 +19,7 @@ export const MODEL_MODULES = {
     "txt_encoder.onnx.data": txtEncoderDataPath,
     "txt_tokenizer.onnx": txtTokenizerPath,
 } as const;
+
+export const IMG_HEIGHT_WIDTH : number = 256;
+export const IMG_COLOR_SIZE : number = 65536;
+export const IMG_BUFFER_SIZE : number = 196608;
