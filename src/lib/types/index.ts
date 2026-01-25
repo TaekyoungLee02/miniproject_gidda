@@ -1,11 +1,10 @@
-import { dbRequest } from "@/src/lib/types/dbRequest"
+// src/types/index.ts
 
 /**
  * [Photo 인터페이스]
  * DB 스키마 및 앱 전반에서 사용하는 메인 데이터 구조
  */
-export interface Photo extends dbRequest
-{
+export interface Photo {
   id: string;             // Expo ID (asset ID)
   local_uri: string;      // 폰 내부 파일 경로 (file://...)
   captured_at: number;    // 촬영 시간 (Unix Timestamp)
@@ -22,7 +21,7 @@ export interface Photo extends dbRequest
   
   // 중요: 벡터는 DB 내부의 vec0 테이블에 저장되므로
   // 일반적인 조회 시에는 이 필드가 비어있을 수 있음.
-  embedding?: number[];     
+  embedding?: number[];      
 }
 
 /**
