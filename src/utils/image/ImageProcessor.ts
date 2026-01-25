@@ -47,7 +47,7 @@ export class ImageProcessorService {
       }
 
       // return image vector
-      console.log(`out_image_vector : ${out}`)
+      console.log(`out_image_vector : ${out.length}`)
       return out;
 
     } catch (error) {
