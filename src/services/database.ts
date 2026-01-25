@@ -4,6 +4,8 @@ import { Photo } from '../types';
 
 // 1. 최신 방식: 동기식(Sync) DB 열기
 const db = SQLite.openDatabaseSync('photos.db');
+// 최근 검색어 노출 갯수
+const MAX_SEARCH_HISTORY = 5; // 나중에 필요하면 이 숫자만 바꾸면 돼!
 
 /**
  * 1. 테이블 초기화
@@ -26,7 +28,16 @@ export const initDB = async (): Promise<void> => {
         ai_tags TEXT
       );
     `);
-    console.log('✅ [DB] Photo 테이블 준비 완료');
+
+    // 2. 🆕 MobileCLIP 벡터 전용 테이블 추가
+    // 사진 ID와 1:1 매칭되며, 실제 512차원 행렬(embedding)을 저장함
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS photo_embeddings (
+        photo_id TEXT PRIMARY KEY NOT NULL,
+        embedding BLOB NOT NULL, -- 512 * 4bytes (Float32) = 2048 bytes
+        FOREIGN KEY (photo_id) REFERENCES photos (id) ON DELETE CASCADE
+      );
+    `);
 
     // 2. 🆕 [신규] 앨범 테이블 (앨범 제목 저장)
     db.execSync(`
@@ -49,11 +60,100 @@ export const initDB = async (): Promise<void> => {
       );
     `);
 
-    console.log('✅ [DB] 테이블 초기화 완료 (Photos, Albums, AlbumPhotos)');
+    // 최근 검색어 테이블  
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS search_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query_text TEXT NOT NULL,      -- GPT 쿼리 키워드 뭉치
+        created_at INTEGER NOT NULL    -- 검색 시간
+      );
+    `);
+
+    // [STEP 2] 🆕 즐겨찾기 시스템 앨범 생성 로직 실행
+    // 함수로 감싸지 말고 바로 실행하거나, 정의 후 바로 호출해야 함
+    const favAlbum = db.getFirstSync<{id: number}>(
+      "SELECT id FROM albums WHERE title = '즐겨찾기' LIMIT 1"
+    );
+
+    if (!favAlbum) {
+      db.runSync(
+        "INSERT INTO albums (title, created_at) VALUES (?, ?)",
+        ['즐겨찾기', Date.now()]
+      );
+      console.log("⭐ [DB] 즐겨찾기 앨범 기본 생성 완료");
+    }
+
+    console.log('✅ [DB] 모든 테이블 및 기본 데이터 초기화 완료');
   } catch (error) {
     console.error('❌ [DB] 초기화 실패:', error);
     throw error;
   }
+};
+
+/**
+ * 🔍 검색 기록 저장 (최대 개수 유지)
+ */
+export const saveSearchHistory = async (queryText: string): Promise<void> => {
+  try {
+    // 1. 새로운 검색어 저장
+    db.runSync(
+      "INSERT INTO search_history (query_text, created_at) VALUES (?, ?)",
+      [queryText, Date.now()]
+    );
+
+    // 2. 최대 개수(MAX_SEARCH_HISTORY)를 초과하는 오래된 기록 삭제
+    // 최신순으로 5개만 남기고 나머지는 ID 기반으로 삭제하는 쿼리
+    db.runSync(`
+      DELETE FROM search_history 
+      WHERE id NOT IN (
+        SELECT id FROM search_history 
+        ORDER BY created_at DESC 
+        LIMIT ?
+      )
+    `, [MAX_SEARCH_HISTORY]);
+
+    console.log(`✅ [DB] 검색 기록 저장 완료: ${queryText}`);
+  } catch (error) {
+    console.error("❌ [DB] 검색 기록 저장 실패:", error);
+  }
+};
+
+/**
+ * 📜 전체 검색 기록 조회 (최신순)
+ */
+export const getSearchHistory = async (): Promise<any[]> => {
+  try {
+    return db.getAllSync("SELECT * FROM search_history ORDER BY created_at DESC");
+  } catch (error) {
+    console.error("❌ [DB] 검색 기록 조회 실패:", error);
+    return [];
+  }
+};
+
+/**
+ * 🗑️ 특정 검색 기록 삭제
+ */
+export const deleteSearchHistory = async (id: number): Promise<void> => {
+  try {
+    db.runSync("DELETE FROM search_history WHERE id = ?", [id]);
+    console.log(`✅ [DB] 검색 기록 삭제 완료 (ID: ${id})`);
+  } catch (error) {
+    console.error("❌ [DB] 검색 기록 삭제 실패:", error);
+  }
+};
+
+/**
+ * 벡터 데이터가 없는 사진을 찾는 쿼리
+ * photos 테이블에는 있는데 photo_embeddings 테이블에는 없는 데이터를 조회함
+ */
+export const getPhotosMissingVector = async (limit: number = 5): Promise<Photo[]> => {
+  const query = `
+    SELECT p.* FROM photos p
+    LEFT JOIN photo_embeddings e ON p.id = e.photo_id
+    WHERE e.photo_id IS NULL
+    LIMIT ?;
+  `;
+  return await db.getAllAsync<Photo>(query, [limit]);
 };
 
 /**
@@ -98,6 +198,47 @@ export const getAllPhotos = async (): Promise<Photo[]> => {
     console.error('❌ [DB] 조회 실패:', error);
     return [];
   }
+};
+
+/**
+ * 🆕 사진의 512차원 벡터(Embedding)를 저장하는 함수
+ * @param photoId 사진 ID
+ * @param embedding Float32Array 형태의 512차원 벡터
+ */
+export const insertPhotoEmbedding = async (
+  photoId: string,
+  embedding: Float32Array
+): Promise<void> => {
+  try {
+    // 1. Float32Array를 바이트 배열로 변환 (512 * 4 bytes = 2048 bytes)
+    const uint8Embedding = new Uint8Array(embedding.buffer);
+
+    // 2. DB에 INSERT (기존에 있으면 덮어쓰기: REPLACE)
+    db.runSync(
+      `INSERT OR REPLACE INTO photo_embeddings (photo_id, embedding) VALUES (?, ?);`,
+      [photoId, uint8Embedding]
+    );
+    
+    console.log(`✅ [DB] 벡터 저장 완료 (ID: ${photoId})`);
+  } catch (error) {
+    console.error(`❌ [DB] 벡터 저장 실패 (ID: ${photoId})`, error);
+    throw error;
+  }
+};
+
+/**
+ * 🆕 벡터 유사도 검색용 데이터 로드 (전체 벡터 가져오기)
+ * 나중에 검색 엔진 고도화 시 사용
+ */
+export const getAllEmbeddings = async (): Promise<{photo_id: string, embedding: Float32Array}[]> => {
+  const rows = db.getAllSync<{photo_id: string, embedding: Uint8Array}>(
+    `SELECT * FROM photo_embeddings`
+  );
+  
+  return rows.map(row => ({
+    photo_id: row.photo_id,
+    embedding: new Float32Array(row.embedding.buffer) // 다시 숫자로 복구
+  }));
 };
 
 // 👇👇👇 [복구된 함수들] 👇👇👇
@@ -271,6 +412,93 @@ export const getPhotosByAlbum = async (albumId: number): Promise<any[]> => {
     return [];
   }
 };
+
+/**
+ * ⭐️ 사진을 즐겨찾기에 추가/제거 (토글)
+ * 작성자: 차명근 (백엔드/DB 담당)
+ */
+export const toggleFavorite = async (photoId: string): Promise<boolean> => {
+  try {
+    // 1. 즐겨찾기 앨범 ID 찾기
+    const album = db.getFirstSync<{id: number}>("SELECT id FROM albums WHERE title = '즐겨찾기'");
+    if (!album) {
+        console.error("❌ 즐겨찾기 앨범이 존재하지 않습니다.");
+        return false;
+    }
+
+    // 2. 이미 등록됐는지 확인 (매핑 테이블 조회)
+    const exists = db.getFirstSync(
+      "SELECT 1 FROM album_photos WHERE album_id = ? AND photo_id = ?",
+      [album.id, photoId]
+    );
+
+    if (exists) {
+      db.runSync("DELETE FROM album_photos WHERE album_id = ? AND photo_id = ?", [album.id, photoId]);
+      return false; // 즐겨찾기 해제됨
+    } else {
+      db.runSync("INSERT INTO album_photos (album_id, photo_id) VALUES (?, ?)", [album.id, photoId]);
+      return true; // 즐겨찾기 추가됨
+    }
+  } catch (error) {
+    console.error("❌ [DB] 즐겨찾기 토글 실패:", error);
+    throw error; // 에러는 위로 던져서 프론트에서 알림을 띄울 수 있게 함
+  }
+};
+
+/**
+ * ⭐️ 즐겨찾기 앨범에 등록된 모든 사진 가져오기
+ * 작성자: 차명근 (백엔드/DB 담당)
+ */
+export const getFavoritePhotos = async (): Promise<Photo[]> => {
+  try {
+    const query = `
+      SELECT p.* FROM photos p
+      JOIN album_photos ap ON p.id = ap.photo_id
+      JOIN albums a ON ap.album_id = a.id
+      WHERE a.title = '즐겨찾기'
+      ORDER BY p.captured_at DESC; -- 최신순 정렬
+    `;
+    
+    const favorites = await db.getAllAsync<Photo>(query);
+    console.log(`⭐ [DB] 즐겨찾기 사진 ${favorites.length}장 로드 완료`);
+    return favorites;
+  } catch (error) {
+    console.error("❌ [DB] 즐겨찾기 사진 조회 실패:", error);
+    return [];
+  }
+};
+
+/**
+ * 🖼️ 전달받은 여러 개의 ID로 사진 상세 정보 가져오기
+ * @param ids 백엔드(유사도 계산팀)에서 넘겨준 사진 ID 배열
+ */
+export const getPhotosByIds = async (ids: string[]): Promise<Photo[]> => {
+  if (!ids || ids.length === 0) return [];
+
+  try {
+    // ID 개수만큼 '?'를 생성 (예: ids가 3개면 "?, ?, ?")
+    const placeholders = ids.map(() => '?').join(',');
+    
+    const query = `
+      SELECT * FROM photos 
+      WHERE id IN (${placeholders})
+      ORDER BY CASE id 
+        ${ids.map((id, index) => `WHEN ? THEN ${index}`).join(' ')}
+      END;
+    `;
+    // ORDER BY CASE를 쓰는 이유는 백엔드가 보내준 '유사도 순서'를 유지하기 위해서야!
+
+    // 쿼리 파라미터는 [ID들..., ID들...] 형태로 두 번 들어가야 함 (WHERE절용, 정렬용)
+    const params = [...ids, ...ids];
+    const photos = await db.getAllAsync<Photo>(query, params);
+    
+    return photos;
+  } catch (error) {
+    console.error("❌ [DB] ID 기반 사진 조회 실패:", error);
+    return [];
+  }
+};
+
 
 // /**
 //  * 5. 특정 사진의 주소(Address) 업데이트
