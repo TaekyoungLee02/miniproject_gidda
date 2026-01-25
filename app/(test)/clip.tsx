@@ -32,22 +32,22 @@ export default function TestScreen()
 
             await imageEncoder.initialize();
             const result = await imageEncoder.run(Array.from(preprocessed))
-            console.log(`result : ${result.length}`)
+            console.log(`result_image : ${result.length}`);
         }
-
-        imageTest();
-
-    }, []);
-
-    useEffect(() => {
 
         const textTest = async () =>
         {
             await textEncoder.initialize();
             const result = await textEncoder.run('hello');
-            console.log(`result : ${result.length}`)
+            console.log(`result_text : ${result.length}`);
         }
 
-        textTest();
+        const test = async () =>
+        {
+            await imageTest();
+            await textTest();
+        }
+
+        test();
     }, []);
 }
