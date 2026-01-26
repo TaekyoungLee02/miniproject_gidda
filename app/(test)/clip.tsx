@@ -25,9 +25,8 @@ export default function TestScreen()
                 image = await new FileSystem.File.downloadFileAsync("https://picsum.photos/id/1011/400/500", new FileSystem.Directory(FileSystem.Paths.cache));
             }
 
-            const preprocessed = await ipp.processForMobileClip(image.uri);
-
-            const result = await imageEncoder.run(preprocessed)
+            //console.log(`inputnames : ${imageEncoder.session.inputNames}`)
+            const result = await imageEncoder.run(image.uri)
             console.log(`result_image : ${result.length}`);
         }
 

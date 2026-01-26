@@ -1,7 +1,7 @@
 import { File, Paths, Directory } from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
-import * as Constants from '@/src/lib/constatnts/constants'
+import * as Constants from '@/src/lib/constants/constants'
 
 /** Change asset to local directory since onnxruntime-react-native requires local directory to run
  *
@@ -47,7 +47,6 @@ export async function prepareModel(modelType : ModelType)
     {
         case ModelType.Image:
             modelName = Constants.imgEncoder;
-            modelDataName = Constants.imgEncoderData;
             break;
 
         case ModelType.Text:

@@ -22,6 +22,7 @@ const DEMO_SCENARIOS = [
 ];
 
 export default function StartPage() {
+  return <Redirect href="/clip" />
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
