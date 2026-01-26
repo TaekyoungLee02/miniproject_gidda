@@ -8,6 +8,9 @@ import {VectorStore} from "@langchain/core/vectorstores"
 import {ImageEncoder, TextEncoder} from "@/src/model/Model"
 import {Photo} from "@/src/lib/types/photo"
 >>>>>>> 7341a23 ([FIX] Bug Fixes)
+import {VectorStore} from "@langchain/core/vectorstores"
+import {ImageEncoder, TextEncoder} from "@/src/model/Model"
+import {Photo} from "@/src/lib/types/photo"
 import * as Database from "@/src/db/database"
 
 export class CLIPSQLiteVecStore extends VectorStore
@@ -15,8 +18,8 @@ export class CLIPSQLiteVecStore extends VectorStore
     db : SQLite.SQLiteDatabase;
     tableName : string;
 
-    imageEmbeddings : ImageEmbeddings;
-    textEmbeddings : TextEmbeddings;
+    imageEncoder : ImageEncoder;
+    textEncoder : TextEncoder;
 
     /**
      * constructor. add vector store to db
@@ -26,13 +29,8 @@ export class CLIPSQLiteVecStore extends VectorStore
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
-<<<<<<< HEAD
-        this.imageEmbeddings = new ImageEmbeddings();
-        this.textEmbeddings = new TextEmbeddings();
-=======
         this.imageEncoder = ImageEncoder.getInstance();
         this.textEncoder = TextEncoder.getInstance();
->>>>>>> 7341a23 ([FIX] Bug Fixes)
         this.db = SQLite.openDatabaseSync(database);
         this.tableName = tableName;
 
@@ -81,8 +79,9 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async addPhotos(imageURIs: string[], rowIds : number[], options?: AddDocumentOptions)
     {
-        const vectors = await this.imageEmbeddings.embedDocuments(imageURIs);
+        const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
         await this.addVectors(vectors, rowIds);
+        return vectors;
     }
 
     async delete(rowIDs: number[])
@@ -116,13 +115,13 @@ export class CLIPSQLiteVecStore extends VectorStore
                 .executeSync([queryVector, k, threshold])
                 .getAllSync();
 
-            const placeholders = rowIds.map(() => "?").join(",");
+            const placeholders = rows.map(() => "?").join(",");
             const photos = this.db
                 .getAllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
-            `, rowIds);
+            `, rows.map((row : any) => row.rowid));
             const photoMap = new Map(photos.map(p => [p.id, p]));
 
             return rows.map((row: any) => [
@@ -142,12 +141,8 @@ export class CLIPSQLiteVecStore extends VectorStore
         k?: number
     ): Promise<[Photo, number][]>
     {
-<<<<<<< HEAD
-        const queryVec = await this.textEmbeddings.embedQuery(query);
-=======
         const queryVec = await this.textEncoder.run(query) as Float32Array;
         Database.saveSearchHistory(query);
->>>>>>> 7341a23 ([FIX] Bug Fixes)
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
     // VectorStore 요구사항 충족용 (내용 없음)
