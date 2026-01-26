@@ -9,10 +9,10 @@ import { Photo } from '../types';
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
 let isSyncing = false;
-export const syncGalleryToDB = (): AsyncGenerator<MediaLibrary.Asset, void, unknown> => {
+export const getGalleryPhotosSync = async function* () {
   if (isSyncing) {
     console.log('🚫 [Sync] 중복 실행 방지됨.');
-    return 0;
+    return null;
   }
 
   try {
