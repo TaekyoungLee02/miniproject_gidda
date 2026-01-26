@@ -9,8 +9,7 @@ import { Photo } from '../types';
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
 let isSyncing = false;
-
-export const syncGalleryToDB = async (): Promise<number> => {
+export const syncGalleryToDB = (): AsyncGenerator<MediaLibrary.Asset, void, unknown> => {
   if (isSyncing) {
     console.log('🚫 [Sync] 중복 실행 방지됨.');
     return 0;
@@ -62,32 +61,37 @@ export const syncGalleryToDB = async (): Promise<number> => {
 
       console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
 
-      for (const asset of assets.assets) {
-        const assetAny = asset as any;
-        const location = assetAny.location;
-        const creationTime = asset.creationTime || Date.now(); // 보통 timestamp(ms)
+      yield assets.assets as MediaLibrary.Asset[];
+      // DB 저장 로직 외부 구현.
 
-        // DB 저장
-        const photoData: Photo = {
-          id: String(asset.id),
-          local_uri: asset.uri,
-          captured_at: creationTime,
-          width: asset.width,
-          height: asset.height,
-          latitude: location ? location.latitude : null,
-          longitude: location ? location.longitude : null,
-          address: null,
-          ai_tags: null,
-        };
-
-        await insertPhoto(photoData);
-        totalSaved++;
-
-        // 가장 최신 시간 갱신 (더 미래의 시간이 나오면 업데이트)
-        if (creationTime > maxTimestamp) {
-          maxTimestamp = creationTime;
-        }
-      }
+      // for (const asset of assets.assets) {
+      //   const assetAny = asset as any;
+      //   const location = assetAny.location;
+      //   const creationTime = asset.creationTime || Date.now(); // 보통 timestamp(ms)
+      //
+      //   // DB 저장
+      //   const photoData: Photo = {
+      //     id: String(asset.id),
+      //     local_uri: asset.uri,
+      //     captured_at: creationTime,
+      //     width: asset.width,
+      //     height: asset.height,
+      //     latitude: location ? location.latitude : null,
+      //     longitude: location ? location.longitude : null,
+      //     address: null,
+      //     ai_tags: null,
+      //   };
+      //
+      //
+      //
+      //   await insertPhoto(photoData);
+      //   totalSaved++;
+      //
+      //   // 가장 최신 시간 갱신 (더 미래의 시간이 나오면 업데이트)
+      //   if (creationTime > maxTimestamp) {
+      //     maxTimestamp = creationTime;
+      //   }
+      // }
 
       hasNextPage = assets.hasNextPage;
       if (hasNextPage) {
@@ -96,7 +100,7 @@ export const syncGalleryToDB = async (): Promise<number> => {
       }
     }
 
-    // 3. 가장 최신 사진의 시간을 저장 (다음엔 이 시간 이후부터 검색)
+    // 3.  가장 최신 사진의 시간을 저장 (다음엔 이 시간이후부터 검색)
     // 단, 사진을 한 장이라도 저장했을 때만 갱신
     if (totalSaved > 0) {
         // 중복 방지를 위해 1ms 더함
