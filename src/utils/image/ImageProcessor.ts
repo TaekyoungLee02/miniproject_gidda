@@ -1,5 +1,5 @@
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as Constants from '@/src/lib/constatnts/constants'
+import * as Constants from '@/src/lib/constants/constants'
 import jpeg from 'jpeg-js'
 
 
