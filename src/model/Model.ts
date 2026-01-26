@@ -14,28 +14,29 @@ export class ImageEncoder extends Session.ModelInferenceSession
     imagePreprocessor : ImageProcessorService;
 
     private constructor() {
-        super(ModelType.Image, [1, 3, 256, 256], "float32");
+        super(ModelType.Image, [3, 256, 256], "float32");
         this.imagePreprocessor = new ImageProcessorService();
     }
 
     // get instance
     public static getInstance(): ImageEncoder
     {
-        return this.instance || (this.instance = new this())
+        return this.instance || (this.instance = new this());
     }
 
-    async run(data : any)
+    async run(uri : string)
     {
-        let preprocessed = await this.imagePreprocessor.processForMobileClip(data);
+        let preprocessed = await this.imagePreprocessor.processForMobileClip(uri);
+        console.log(`pps ${preprocessed.length}`)
         return await super.run(preprocessed);
     }
 
-    async runEnumerate(datas : any[])
+    async runEnumerate(uris : string[])
     {
         let preprocessed = []
-        for(let data of datas)
+        for(let uri of uris)
         {
-            preprocessed.push(await this.imagePreprocessor.processForMobileClip(data));
+            preprocessed.push(await this.imagePreprocessor.processForMobileClip(uri));
         }
         return super.runEnumerate(preprocessed);
     }
@@ -54,14 +55,14 @@ export class TextEncoder extends Session.ModelInferenceSession
     tokenizer : TextTokenizerSession;
 
     constructor() {
-        super(ModelType.Text, [1, 77], "int64");
+        super(ModelType.Text, [77], "int64");
         this.tokenizer = new TextTokenizerSession();
     }
 
     // get instance
     public static getInstance(): TextEncoder
     {
-        return this.instance || (this.instance = new this())
+        return this.instance || (this.instance = new this());
     }
 
     async initialize(): Promise<void> {
