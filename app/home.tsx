@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     Dimensions, Keyboard, TouchableWithoutFeedback, StyleSheet,
-    KeyboardAvoidingView, Platform, ScrollView
+    KeyboardAvoidingView, Platform, ScrollView, Alert // 👈 bjy
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import Animated, {
     useSharedValue, useAnimatedStyle, withTiming, Easing
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
+import { analyzeUserSearch } from '../src/api/AzureService'; // 👈 bjy
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,6 +19,7 @@ export default function HomePage() {
     const router = useRouter();
     const [inputText, setInputText] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // 👈 bjy
 
     const slideAnim = useSharedValue(-width * 0.7);
     const opacityAnim = useSharedValue(0);
@@ -32,6 +34,37 @@ export default function HomePage() {
 
     const sidebarStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slideAnim.value }] }));
     const backdropStyle = useAnimatedStyle(() => ({ opacity: opacityAnim.value }));
+
+    // --- 🚀 새로 추가할 핸들러 함수 (bjy)---
+    const handleSearch = async () => {
+        if (!inputText.trim()) return;
+        
+        setIsLoading(true); // 분석 시작
+        try {
+            // 1. Azure 분석 함수 호출
+            const analysisResult = await analyzeUserSearch(inputText);
+
+            if (analysisResult && analysisResult.suitability) {
+                // 2. 적합할 경우: 분석된 엔티티와 가중치를 가지고 이동
+                router.push({
+                    pathname: '/searching' as any, 
+                    params: { 
+                        prompt: inputText,
+                        entities: JSON.stringify(analysisResult.entities),
+                        weights: JSON.stringify(analysisResult.weights)
+                    }
+                });
+            } else {
+                // 3. 부적합할 경우 (바디체크 등 보안 필터링)
+                Alert.alert("알림", analysisResult?.reason || "이미지 검색에 적합하지 않은 검색어입니다.");
+            }
+        } catch (error) {
+            console.error("분석 중 오류 발생:", error);
+            Alert.alert("오류", "분석 중 문제가 발생했습니다.");
+        } finally {
+            setIsLoading(false); // 분석 종료
+        }
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: '#FFFCF5' }}>
@@ -80,16 +113,18 @@ export default function HomePage() {
                             <View style={styles.inputContainer}>
                                 <TextInput
                                     style={styles.textInput}
-                                    placeholder="예) 강아지랑 찍은 사진 찾아줘!"
+                                    placeholder={isLoading ? "분석 중..." : "예) 강아지랑 찍은 사진 찾아줘!"} // 👈 bjy
                                     placeholderTextColor="#CCC"
                                     value={inputText}
                                     onChangeText={setInputText}
                                     multiline={false} // 글자 잘림 방지
                                     textAlignVertical="center"
+                                    editable={!isLoading} // 👈 bjy
                                 />
                                 <TouchableOpacity
-                                    style={styles.inputButton}
-                                    onPress={() => inputText.trim() && router.push({ pathname: '/searching', params: { prompt: inputText } })}
+                                    style={[styles.inputButton, isLoading && { opacity: 0.5 }]} // 👈 로딩 중 버튼 불투명 처리 bjy
+                                    onPress={handleSearch} // 👈 여기서 handleSearch 호출! bjy
+                                    disabled={isLoading} // 👈 로딩 중 클릭 방지 bjy
                                 >
                                     <Text style={styles.inputButtonText}>입력</Text>
                                 </TouchableOpacity>
