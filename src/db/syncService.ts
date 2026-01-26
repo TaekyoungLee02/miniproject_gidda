@@ -10,6 +10,8 @@ import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
 let isSyncing = false;
+export let gallery_photos_amount : number = 1;
+
 export const getGalleryPhotosSync = async function* () {
   if (isSyncing) {
     console.log('🚫 [Sync] 중복 실행 방지됨.');
@@ -55,6 +57,7 @@ export const getGalleryPhotosSync = async function* () {
 
     while (hasNextPage) {
       const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
+      gallery_photos_amount = assets.totalCount;
       
       if (assets.totalCount === 0 || assets.assets.length === 0) {
         break;

@@ -13,6 +13,7 @@ import Animated, {
 // 🔴 [연결] 백엔드 및 서비스 함수 임포트
 import { getPhotosByIds } from '../src/db/database';
 import { SearchType } from '../src/lib/enums/enums';
+import {PhotoDatabaseService} from "@/src/services/PhotoDatabaseService";
  
 const { width } = Dimensions.get('window');
  
@@ -38,7 +39,7 @@ export default function SearchingPage() {
     // Home에서 넘어온 데이터들
     const userPrompt = params.prompt as string || "추억";
     const entitiesStr = params.entities as string; // Azure 분석 결과 (JSON 문자열)
-    const weightsStr = params.weights as string;   // 가중치 정보
+    const weights = params.weights as string[]; // 가중치 정보
  
     const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
     const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
@@ -76,45 +77,45 @@ export default function SearchingPage() {
  
         // 2. Azure 분석 결과에서 키워드 추출하여 화면에 표시
         let keywordList: string[] = [];
-        if (entitiesStr) {
-            try {
-                const entities = JSON.parse(entitiesStr);
-                // Context(0), Time(1), Space(2)의 단어들을 합쳐서 키워드로 사용
-                const allWords = [
-                    ...(entities[SearchType.Context] || []),
-                    ...(entities[SearchType.Time] || []),
-                    ...(entities[SearchType.Space] || [])
-                ];
-                keywordList = allWords.map(word => `#${word}`);
-                
-                // 순차적으로 화면에 키워드 뿌려주기
-                keywordList.slice(0, 3).forEach((tag, i) => {
-                    setTimeout(() => setExtractedKeywords(prev => [...prev, tag]), (i + 1) * 800);
-                });
-            } catch (e) {
-                console.error("키워드 파싱 에러:", e);
-            }
-        }
- 
+        const entities = JSON.parse(entitiesStr);
+        // Context(0), Time(1), Space(2)의 단어들을 합쳐서 키워드로 사용
+        const allWords = [
+            ...(entities[SearchType.Context] || []),
+            ...(entities[SearchType.Time] || []),
+            ...(entities[SearchType.Space] || [])
+        ];
+        keywordList = allWords.map(word => `#${word}`);
+
+        // 순차적으로 화면에 키워드 뿌려주기
+        keywordList.slice(0, 3).forEach((tag, i) => {
+            setTimeout(() => setExtractedKeywords(prev => [...prev, tag]), (i + 1) * 800);
+        });
+
+        const service = PhotoDatabaseService.getInstance();
+
         // 3. 🔴 [백엔드 파트] DB에서 사진 정보 가져오기
         // 주의: 현재는 유사도 계산팀의 결과 ID 리스트가 필요함.
         // 우선은 동작 확인을 위해 '전달받은 ID가 있다고 가정'하거나 백엔드 로직을 기다리는 시점입니다.
         // 여기서는 예시 ID들로 DB 조회를 수행합니다.
-        const mockIdsFromSimilarityTeam = ["1", "2", "3"]; // 나중에 이 부분을 유사도 팀 변수로 교체!
-        const searchResults = await getPhotosByIds(mockIdsFromSimilarityTeam);
- 
-        // 4. 연출 후 결과 페이지로 이동
-        setTimeout(() => {
-            if (shuffleInterval) clearInterval(shuffleInterval);
-            router.replace({
-                pathname: '/save-page', // 실제 결과 페이지 경로 확인 필요
-                params: {
-                    prompt: userPrompt,
-                    photos: JSON.stringify(searchResults), // 실제 DB에서 가져온 사진 객체들
-                    keywords: JSON.stringify(keywordList)
-                }
-            });
-        }, 4500); // 4.5초 동안 '긷는' 연출 후 이동
+        // const mockIdsFromSimilarityTeam = ["1", "2", "3"]; // 나중에 이 부분을 유사도 팀 변수로 교체!
+        // const searchResults = await getPhotosByIds(mockIdsFromSimilarityTeam);
+
+        const searchPromise = service.searchPhoto(entities, weights);
+        if (shuffleInterval) clearInterval(shuffleInterval);
+
+        const [searchResults] = await Promise.all([
+            searchPromise,
+            new Promise((r) => setTimeout(r, 4500)),
+        ]);
+
+        router.replace({
+            pathname: '/save-page-ui', // 실제 결과 페이지 경로 확인 필요
+            params: {
+                prompt: userPrompt,
+                photos: JSON.stringify(searchResults), // 실제 DB에서 가져온 사진 객체들
+                keywords: JSON.stringify(keywordList)
+            }
+        });
     };
  
  

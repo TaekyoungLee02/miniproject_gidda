@@ -51,7 +51,7 @@ export default function HomePage() {
                     params: { 
                         prompt: inputText,
                         entities: JSON.stringify(analysisResult.entities),
-                        weights: JSON.stringify(analysisResult.weights)
+                        weights: [analysisResult.weights["0"], analysisResult.weights["1"], analysisResult.weights["2"]]
                     }
                 });
             } else {

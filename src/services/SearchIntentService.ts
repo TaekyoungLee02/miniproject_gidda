@@ -1,4 +1,4 @@
-import { client } from "./AzureFoundry";
+import { client } from "@/src/api/AzureFoundry";
 
 export interface SearchWeights {
   content_w: number;

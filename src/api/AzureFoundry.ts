@@ -1,5 +1,4 @@
 import { AzureOpenAI } from "openai";
-import 'dotenv/config';
 
 export const client = new AzureOpenAI({
   endpoint: process.env.AZURE_AI_FOUNDRY_ENDPOINT,

@@ -1,6 +1,6 @@
 import { client } from "./AzureFoundry";
-import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from './constants/prompts';
-import { SearchAnalysisResult } from './types/analysis';
+import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from '@/src/lib/constants/constants';
+import { SearchAnalysisResult } from '@/src/lib/types/analysis';
 import { SearchType } from '../lib/enums/enums';
 
 

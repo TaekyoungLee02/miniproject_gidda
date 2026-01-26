@@ -14,6 +14,7 @@ import Animated, {
     withSequence,
     Easing
 } from 'react-native-reanimated';
+import { PhotoDatabaseService } from '@/src/services/PhotoDatabaseService'
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,27 +53,27 @@ export default function IndexingPage() {
     }, []);
 
     const startProcess = async () => {
+
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') { router.replace('/'); return; }
-
         const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
-        if (album.assets.length > 0) {
-            setCurrentPhoto(album.assets[0].uri);
-            const slideInterval = setInterval(() => {
-                slideIndex.current = (slideIndex.current + 1) % album.assets.length;
-                setCurrentPhoto(album.assets[slideIndex.current].uri);
-            }, 600); // 사진 전환 속도 
 
-            for (let i = 0; i <= 100; i++) {
-                setProgress(i);
-                if (i === 30) setStatusText('#여행의_기록');
-                if (i === 60) setStatusText('#맛있는_음식');
-                if (i === 90) setStatusText('#분석_마무리_중');
-                await new Promise(r => setTimeout(r, 60));
-            }
+        const service = PhotoDatabaseService.getInstance();
+
+        const slideInterval = setInterval(() => {
+            slideIndex.current = (slideIndex.current + 1) % album.assets.length;
+            setCurrentPhoto(album.assets[slideIndex.current].uri);
+        }, 600); // 사진 전환 속도
+
+        for await (const progress of service.savePhotosToDB())
+        {
+            if (progress >= 0.3) setStatusText('#여행의_기록');
+            else if (progress >= 0.6) setStatusText('#맛있는_음식');
+            else if (progress >= 0.9) setStatusText('#분석_마무리_중');
+
             clearInterval(slideInterval);
-            router.replace('/welcome');
         }
+        router.replace('/welcome');
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({

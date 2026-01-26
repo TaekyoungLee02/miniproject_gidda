@@ -86,7 +86,7 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number)
     {
         const statement = this.db.prepareSync(`
                 SELECT 
@@ -115,10 +115,12 @@ export class CLIPSQLiteVecStore extends VectorStore
             `, rows.map((row : any) => row.rowid));
             const photoMap = new Map(photos.map(p => [p.id, p]));
 
-            return rows.map((row: any) => [
-                photoMap.get(row.rowid),
-                1 - row.distance
-            ]);
+            return rows.map((row: any) => {
+                return {
+                    photo: photoMap.get(row.rowid),
+                    similarity: 1 - row.distance
+                }
+            });
         }
         finally
         {
@@ -126,7 +128,7 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearch(query: string, threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearch(query: string, threshold : number, k?: number)
     {
         const queryVec = await this.textEncoder.run(query) as Float32Array;
         Database.saveSearchHistory(query);

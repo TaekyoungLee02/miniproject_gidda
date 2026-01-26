@@ -24,8 +24,8 @@ export default function SavePageUI() {
     const userPrompt = params.prompt as string || "";
 
     // 🔴 [수정] searching.tsx에서 넘어온 실제 데이터들 bjy
-    const incomingPhotos = params.photos ? JSON.parse(params.photos as string) : [];
-    const incomingKeywords = params.keywords ? JSON.parse(params.keywords as string) : [];
+    const incomingPhotos : Photo[] = params.photos ? JSON.parse(params.photos as string) : [];
+    const incomingKeywords : string[] = params.keywords ? JSON.parse(params.keywords as string) : [];
 
     const [activeTags, setActiveTags] = useState<string[]>([]);
     const [sessions, setSessions] = useState<{ [key: string]: any[] }>({}); // bjy
