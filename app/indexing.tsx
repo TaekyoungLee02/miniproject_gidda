@@ -2,9 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import * as MediaLibrary from 'expo-media-library';
+import * as MediaLibrary from 'expo-media-library';// 전체 갯수 확인용
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { insertPhoto } from '@/src/db/database';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 📦 [추가] 완료 처리를 위해 필요
+// 🛠️ [수정] 서비스 파일 import
+import { getGalleryPhotosSync } from '../src/db/syncService';
 import Animated, {
     FadeIn,
     useSharedValue,
@@ -14,6 +18,9 @@ import Animated, {
     withSequence,
     Easing
 } from 'react-native-reanimated';
+
+ 
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,31 +59,77 @@ export default function IndexingPage() {
     }, []);
 
     const startProcess = async () => {
+        // 전체 갯수만 먼저 파악 (진행률 표시용)
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') { router.replace('/'); return; }
 
-        const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
-        if (album.assets.length > 0) {
-            setCurrentPhoto(album.assets[0].uri);
+        const totalAssets = await MediaLibrary.getAssetsAsync({ mediaType: 'photo' });
+        const totalCount = totalAssets.totalCount;
+        let processedCount = 0;
+
+        // 서비스 호출
+        const album = await MediaLibrary.getAssetsAsync({ 
+            mediaType: 'photo',
+            first: 50, sortBy: ['creationTime']});
+
+            const photos = album.assets;
+            const total = photos.length;
+            
+        if (total > 0) {
+            setCurrentPhoto(photos[0].uri);
+
+            // 배경 슬라이드쇼 시작
             const slideInterval = setInterval(() => {
                 slideIndex.current = (slideIndex.current + 1) % album.assets.length;
                 setCurrentPhoto(album.assets[slideIndex.current].uri);
             }, 600); // 사진 전환 속도 
 
-            for (let i = 0; i <= 100; i++) {
-                setProgress(i);
-                if (i === 30) setStatusText('#여행의_기록');
-                if (i === 60) setStatusText('#맛있는_음식');
-                if (i === 90) setStatusText('#분석_마무리_중');
-                await new Promise(r => setTimeout(r, 60));
+            // [수정] 실제 DB 저장 루프 시작
+            for (let i = 0; i < total; i++) {
+                const photo = photos[i];
+
+                // ⚡ 핵심: DB 저장 함수 호출
+                // (네가 정의한 insertPhoto 함수에 맞춰 데이터 전달)
+                await insertPhoto({
+                    id: photo.id,
+                    uri: photo.uri,
+                    creationTime: photo.creationTime,
+                    width: photo.width,
+                    height: photo.height,
+                    // 필요한 경우 추가 메타데이터 전달
+                });
+
+                // 진행률 계산
+                const percent = Math.floor(((i + 1) / total) * 100);
+                setProgress(percent);
+
+                // 상태 텍스트 업데이트
+                if (percent === 30) setStatusText('#여행의_기록_스캔중');
+                if (percent === 60) setStatusText('#맛있는_음식_담는중');
+                if (percent === 90) setStatusText('#거의_다_됐어요');
+
+                // UI 스레드 과부하 방지를 위한 미세한 지연 (선택 사항)
+                if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
             }
+            // 완료 처리
             clearInterval(slideInterval);
+
+            // Welcome 페이지 등에서 쓰기 위해 저장
+            await AsyncStorage.setItem('indexed_count', total.toString());
+            await AsyncStorage.setItem('is_setup_complete', 'true');
+
+            // 잠시 후 이동
+            setTimeout(() => {
+                router.replace('/welcome');
+            }, 500);
+        } else {
+            // 사진이 없을 경우 바로 이동
             router.replace('/welcome');
         }
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value }]
+        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value },] as const,
     }));
 
     return (

@@ -136,7 +136,11 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearch(query: string, threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearchInternal(
+        query: string,
+        threshold: number,
+        k?: number
+    ): Promise<[Photo, number][]>
     {
 <<<<<<< HEAD
         const queryVec = await this.textEmbeddings.embedQuery(query);
@@ -146,4 +150,12 @@ export class CLIPSQLiteVecStore extends VectorStore
 >>>>>>> 7341a23 ([FIX] Bug Fixes)
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
+    // VectorStore 요구사항 충족용 (내용 없음)
+    async similaritySearch(
+        query: string,
+        k?: number
+    ): Promise<any[]> {
+        return [];
+    }
+    
 }

@@ -4,11 +4,13 @@
 import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { insertPhoto } from './database';
-import { Photo } from '../types';
+import { Photo } from '../lib/types/photo';
 
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
 let isSyncing = false;
+
+// 🟢 Generator 함수: 데이터를 덩어리(Batch)째로 UI에 던져줍니다.
 export const getGalleryPhotosSync = async function* () {
   if (isSyncing) {
     console.log('🚫 [Sync] 중복 실행 방지됨.');
@@ -33,13 +35,16 @@ export const getGalleryPhotosSync = async function* () {
       // 최신순으로 정렬하지 말고, "오래된 순(CreationTime)"으로 정렬해야
       // 과거 -> 현재 순서대로 차곡차곡 쌓임
       sortBy: [MediaLibrary.SortBy.creationTime], 
-      
       // ⭐ 핵심: 이 시간 이후에 찍은 사진만 다 가져와!
       createdAfter: lastTime, 
-      
       first: 50, 
       include: ['location'],
     } as any;
+
+    let hasNextPage = true;
+    let totalSaved = 0;
+    // 이번 동기화에서 가장 최신 사진의 시간을 기록할 변수
+    let maxTimestamp = lastTime; 
 
     if (lastTime > 0) {
       console.log(`📡 [Sync] ${new Date(lastTime).toLocaleString()} 이후의 사진을 찾습니다.`);
@@ -47,11 +52,7 @@ export const getGalleryPhotosSync = async function* () {
       console.log(`📡 [Sync] 전체 스캔을 시작합니다.`);
     }
 
-    let hasNextPage = true;
-    let totalSaved = 0;
-    // 이번 동기화에서 가장 최신 사진의 시간을 기록할 변수
-    let maxTimestamp = lastTime; 
-
+    // 페이지네이션 루프
     while (hasNextPage) {
       const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
       
@@ -62,36 +63,7 @@ export const getGalleryPhotosSync = async function* () {
       console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
 
       yield assets.assets as MediaLibrary.Asset[];
-      // DB 저장 로직 외부 구현.
-
-      // for (const asset of assets.assets) {
-      //   const assetAny = asset as any;
-      //   const location = assetAny.location;
-      //   const creationTime = asset.creationTime || Date.now(); // 보통 timestamp(ms)
-      //
-      //   // DB 저장
-      //   const photoData: Photo = {
-      //     id: String(asset.id),
-      //     local_uri: asset.uri,
-      //     captured_at: creationTime,
-      //     width: asset.width,
-      //     height: asset.height,
-      //     latitude: location ? location.latitude : null,
-      //     longitude: location ? location.longitude : null,
-      //     address: null,
-      //     ai_tags: null,
-      //   };
-      //
-      //
-      //
-      //   await insertPhoto(photoData);
-      //   totalSaved++;
-      //
-      //   // 가장 최신 시간 갱신 (더 미래의 시간이 나오면 업데이트)
-      //   if (creationTime > maxTimestamp) {
-      //     maxTimestamp = creationTime;
-      //   }
-      // }
+      
 
       hasNextPage = assets.hasNextPage;
       if (hasNextPage) {
