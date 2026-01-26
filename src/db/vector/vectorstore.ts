@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { VectorStore } from "@langchain/core/vectorstores"
-import { ImageEmbeddings, TextEmbeddings } from "@/src/db/langchain/embedding"
+import { ImageEncoder, TextEncoder } from "@/src/model/Model"
 import { Photo } from "@/src/lib/types/photo"
 import * as Database from "@/src/db/database"
 
@@ -9,8 +9,8 @@ export class CLIPSQLiteVecStore extends VectorStore
     db : SQLite.SQLiteDatabase;
     tableName : string;
 
-    imageEmbeddings : ImageEmbeddings;
-    textEmbeddings : TextEmbeddings;
+    imageEncoder : ImageEncoder;
+    textEncoder : TextEncoder;
 
     /**
      * constructor. add vector store to db
@@ -21,8 +21,8 @@ export class CLIPSQLiteVecStore extends VectorStore
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
-        this.imageEmbeddings = new ImageEmbeddings();
-        this.textEmbeddings = new TextEmbeddings();
+        this.imageEncoder = new ImageEncoder.getInstance();
+        this.textEncoder = new TextEncoder.getInstance();
         this.db = SQLite.openDatabaseSync(database);
         this.tableName = tableName;
 
@@ -71,7 +71,7 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async addPhotos(imageURIs: string[], rowIds : number[], options?: AddDocumentOptions)
     {
-        const vectors = await this.imageEmbeddings.embedDocuments(imageURIs);
+        const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
         await this.addVectors(vectors, rowIds);
     }
 
@@ -131,7 +131,7 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async similaritySearch(query: string, threshold : number, k?: number): Promise<[Photo, number][]>
     {
-        const queryVec = await this.textEmbeddings.embedQuery(query);
+        const queryVec = await this.textEncoder.run(query) as Float32Array;
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
 }

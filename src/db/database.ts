@@ -1,6 +1,7 @@
 // src/services/database.ts
+import * as MediaLibrary from 'expo-media-library';
 import * as SQLite from 'expo-sqlite';
-import { Photo } from '../types';
+import { Photo } from '@/src/lib/types/photo';
 
 // 1. 최신 방식: 동기식(Sync) DB 열기
 const db = SQLite.openDatabaseSync('photos.db');
@@ -184,6 +185,40 @@ export const insertPhoto = async (photo: Photo): Promise<void> => {
     throw error;
   }
 };
+
+export const insertPhotoAllFromAsset
+    = async (assets : MediaLibrary.Asset[],
+             aiTags : string[],
+             addresses : string[]) : Promise<void> =>
+{
+  try {
+    await db.withTransactionAsync(async () => {
+      for (const index in assets) {
+        const safeArgs = [
+          assets[index].id ?? '',
+          assets[index].uri ?? '',
+          assets[index].creationTime ?? Date.now(),
+          assets[index].width ?? 0,
+          assets[index].height ?? 0,
+          (assets[index] as any).location.latitude ?? null,
+          (assets[index] as any).location.longitude ?? null,
+          addresses[index] ?? null,
+          aiTags[index] ? JSON.stringify(aiTags[index]) : null,
+        ];
+
+        db.runSync(
+            `INSERT OR REPLACE INTO photos (
+              id, local_uri, captured_at, width, height, latitude, longitude, address, ai_tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+            safeArgs
+        );
+      }
+    });
+  } catch (error) {
+    console.error(`❌ [DB] 저장 실패`, error);
+    throw error;
+  }
+}
 
 /**
  * 3. 전체 조회 (테스트용)
