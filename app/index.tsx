@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Modal, TouchableOpacity, Platform, Pressable, Dimensions } from 'react-native';
+import { View, Text, Image, Modal, TouchableOpacity, Platform, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Asset } from 'expo-asset';
 import * as MediaLibrary from 'expo-media-library';
 
-// ✅ 삼각형처럼 사진들도 변수로 직접 선언 (이게 가장 확실한 방법입니다)
-const LogoTriangleLeft = require('../assets/images/left-rectangle.png');
-const LogoTriangleRight = require('../assets/images/right-rectangle.png');
+const { width, height } = Dimensions.get('window');
+
+// ✅ 새 로고와 사진들 변수 선언
+const GiddaLogoBucket = require('../assets/images/favicon2.png'); // 👈 새 양동이 로고
 const PicDog = require('../assets/images/pic-withdog.jpg');
 const PicDoc = require('../assets/images/pic-doc.jpg');
 const PicSwiss = require('../assets/images/pic-swiss-v2.jpg');
@@ -24,7 +25,6 @@ const DEMO_SCENARIOS = [
 export default function StartPage() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [initialReady, setInitialReady] = useState(false);
   const [loadedIds, setLoadedIds] = useState<Record<number, boolean>>({});
   const loadedIdsRef = useRef<Record<number, boolean>>({});
@@ -36,16 +36,15 @@ export default function StartPage() {
     const markLoaded = (ids: number[]) => {
       setLoadedIds((prev) => {
         const next = { ...prev };
-        ids.forEach((id) => {
-          next[id] = true;
-        });
+        ids.forEach((id) => { next[id] = true; });
         loadedIdsRef.current = next;
         return next;
       });
     };
     const preloadInitial = async () => {
       const first = DEMO_SCENARIOS[0];
-      await Asset.loadAsync([LogoTriangleLeft, LogoTriangleRight, first.src]);
+      // ✅ 세모 이미지 로드 삭제, 새 로고 로드 추가
+      await Asset.loadAsync([GiddaLogoBucket, first.src]);
       if (!isMounted) return;
       markLoaded([first.id]);
       setInitialReady(true);
@@ -53,19 +52,13 @@ export default function StartPage() {
       const remaining = DEMO_SCENARIOS.slice(1);
       remaining.forEach((s) => loadingIdsRef.current.add(s.id));
       Asset.loadAsync(remaining.map((s) => s.src))
-        .then(() => {
-          if (isMounted) markLoaded(remaining.map((s) => s.id));
-        })
-        .finally(() => {
-          remaining.forEach((s) => loadingIdsRef.current.delete(s.id));
-        });
+        .then(() => { if (isMounted) markLoaded(remaining.map((s) => s.id)); })
+        .finally(() => { remaining.forEach((s) => loadingIdsRef.current.delete(s.id)); });
     };
     preloadInitial();
 
     float.value = withRepeat(withTiming(8, { duration: 2500, easing: Easing.inOut(Easing.sin) }), -1, true);
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const loadScenarioById = async (id: number) => {
@@ -80,9 +73,7 @@ export default function StartPage() {
         loadedIdsRef.current = next;
         return next;
       });
-    } finally {
-      loadingIdsRef.current.delete(id);
-    }
+    } finally { loadingIdsRef.current.delete(id); }
   };
 
   useEffect(() => {
@@ -112,19 +103,22 @@ export default function StartPage() {
     <View style={{ flex: 1, backgroundColor: '#FFFCF5' }} className="items-center px-6">
       <StatusBar style="dark" />
 
-      {/* --- 1. 상단 로고 (mt-40으로 하향) --- */}
-      <View className="items-center w-full mt-40">
-        <Animated.View style={[{ flexDirection: 'row', alignItems: 'center', position: 'relative' }, animatedLogoStyle]}>
-          <Image source={LogoTriangleLeft} style={{ width: 40, height: 40, position: 'absolute', left: -50, top: -15 }} resizeMode="contain" />
-          <Text style={{ fontFamily: 'Montserrat-Regular', fontSize: 56, color: '#F38A2C', letterSpacing: 2.8 }}>GIDDA</Text>
-          <Image source={LogoTriangleRight} style={{ width: 40, height: 40, position: 'absolute', right: -50, bottom: -15 }} resizeMode="contain" />
+      {/* --- 1. 상단 로고 (새 양동이 로고 상단 중앙 배치) --- */}
+      <View className="items-center w-full mt-24">
+        <Animated.View style={[styles.logoHeader, animatedLogoStyle]}>
+          <Image
+            source={GiddaLogoBucket}
+            style={styles.logoBucket}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandName}>GIDDA</Text>
         </Animated.View>
-        <Text style={{ fontFamily: 'Pretendard-Bold', color: '#333' }} className="text-[13px] tracking-tight mt-11 opacity-70">
+        <Text style={styles.tagline}>
           수만 장의 사진 속에서, AI가 당신의 어제를 ‘긷다’.
         </Text>
       </View>
 
-      {/* --- 2. 중앙 콘텐츠 (사진 크기 축소 및 간격 분리) --- */}
+      {/* --- 2. 중앙 콘텐츠 (폴라로이드 감성 유지) --- */}
       <View className="items-center justify-center w-full mt-10">
         <Animated.View
           key={`scenario-${currentIndex}`}
@@ -132,73 +126,90 @@ export default function StartPage() {
           exiting={FadeOut.duration(400)}
           className="items-center w-full"
         >
-          <View style={{
-            backgroundColor: 'white',
-            padding: 10,
-            paddingBottom: 35,
-            borderRadius: 2,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
-            transform: [{ rotate: '-2deg' }],
-            borderWidth: 1,
-            borderColor: '#f2f2f2'
-          }}>
-            {/* ✅ 배열 안의 변수를 직접 참조 */}
+          <View style={styles.polaroidCard}>
             {loadedIds[DEMO_SCENARIOS[currentIndex].id] ? (
               <Image
                 source={DEMO_SCENARIOS[currentIndex].src}
-                style={{ width: 170, height: 210, backgroundColor: '#eee' }}
+                style={styles.mainImage}
                 resizeMode="cover"
               />
             ) : (
-              <View style={{ width: 170, height: 210, backgroundColor: '#eee' }} />
+              <View style={[styles.mainImage, { backgroundColor: '#eee' }]} />
             )}
           </View>
 
-          {/* 프롬프트 박스 (여백 넉넉히) */}
-          <View style={{
-            backgroundColor: 'white',
-            borderColor: 'rgba(243, 138, 44, 0.25)',
-            borderWidth: 1.5,
-            borderRadius: 25,
-            paddingVertical: 14,
-            paddingHorizontal: 20,
-            width: '75%',
-            marginTop: 35, // 사진과 프롬프트 사이 간격
-          }}>
-            <Text style={{ fontFamily: 'Pretendard-Regular', color: '#555' }} className="text-center text-[17px]">
+          {/* 프롬프트 박스 (시인성 강화) */}
+          <View style={styles.promptBox}>
+            <Text style={styles.promptText}>
               {DEMO_SCENARIOS[currentIndex].text}
             </Text>
           </View>
         </Animated.View>
       </View>
 
-      {/* --- 3. 하단 Enter 버튼 (너비 축소 및 위치 하단 고정) --- */}
+      {/* --- 3. 하단 Enter 버튼 (위치 고정) --- */}
       <View className="w-full items-center mt-auto mb-20">
         <Pressable
           onPress={handleEnterPress}
           style={({ pressed }) => [
-            {
-              backgroundColor: pressed ? '#D6751F' : '#F38A2C',
-              transform: [{ scale: pressed ? 0.96 : 1 }],
-              borderRadius: 10,
-              height: 56,
-              width: 80,
-              alignItems: 'center',
-              justifyContent: 'center',
-              elevation: pressed ? 0 : 5,
-              shadowColor: "#F38A2C",
-              shadowOffset: { width: 0, height: pressed ? 0 : 5 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-            }
+            styles.enterBtn,
+            { backgroundColor: pressed ? '#D6751F' : '#F38A2C', transform: [{ scale: pressed ? 0.96 : 1 }] }
           ]}
         >
-          <Text style={{ fontFamily: 'Pretendard-Bold', color: 'white', fontSize: 18 }}>Enter</Text>
+          <Text style={styles.enterBtnText}>Enter</Text>
         </Pressable>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  logoHeader: { alignItems: 'center', justifyContent: 'center' },
+  logoBucket: { width: 200, height: 70, marginBottom: 5 }, // 양동이 크기 조정
+  brandName: { fontFamily: 'Montserrat-Regular', fontSize: 52, color: '#F38A2C', letterSpacing: 2.6 },
+  tagline: { fontFamily: 'Pretendard-Bold', color: '#333', fontSize: 13, letterSpacing: -0.5, marginTop: 15, opacity: 0.7 },
+
+  polaroidCard: {
+    backgroundColor: 'white',
+    padding: 10,
+    paddingBottom: 35,
+    borderRadius: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    transform: [{ rotate: '-2deg' }],
+    borderWidth: 1,
+    borderColor: '#f2f2f2'
+  },
+  mainImage: { width: 180, height: 220 },
+
+  promptBox: {
+    backgroundColor: 'white',
+    borderColor: 'rgba(243, 138, 44, 0.25)',
+    borderWidth: 1.5,
+    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    width: '80%',
+    marginTop: 35,
+    shadowColor: "#F38A2C",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  promptText: { fontFamily: 'Pretendard-Regular', color: '#555', textAlign: 'center', fontSize: 17 },
+
+  enterBtn: {
+    height: 56,
+    width: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    shadowColor: "#F38A2C",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  enterBtnText: { fontFamily: 'Pretendard-Bold', color: 'white', fontSize: 18 }
+});
