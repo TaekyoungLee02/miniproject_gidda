@@ -22,7 +22,8 @@ export interface Photo extends dbRequest
   
   // 중요: 벡터는 DB 내부의 vec0 테이블에 저장되므로
   // 일반적인 조회 시에는 이 필드가 비어있을 수 있음.
-  embedding?: number[];     
+  // 수정 -> embedding 관련 내용 분리
+  // embedding?: number[];
 }
 
 /**

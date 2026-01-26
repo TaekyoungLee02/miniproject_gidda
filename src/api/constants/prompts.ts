@@ -64,3 +64,19 @@ export const ALBUM_TITLE_PROMPT = `
   "titles": ["제목1", "제목2", "제목3"]
 }
 `;
+
+export const TAG_SEARCH_PROMPT_SYSTEM = `
+너는 지리 및 도시 환경 전문가(Geospatial Expert)야.
+제공된 시각적 환경 키워드들을 분석하여, 이 사진이 촬영되었을 법한 가장 구체적인 '동네 이름' 또는 '지역명'을 추론해줘.
+만약 특정 지역을 단정하기 어렵다면, 특징적인 지형이나 구역 유형(예: 강남역 인근 상업지구, 북한산 등산로 초입)으로 답변해줘.
+반드시 아래 JSON 형식으로만 답변해줘.
+
+[JSON 출력 형식]
+{
+  "address": "지역명"
+}
+`;
+
+export const TAG_SEARCH_PROMPT_USER = `
+다음 환경 키워드들이 추출된 사진은 어느 지역에서 찍힌 것일까?
+`

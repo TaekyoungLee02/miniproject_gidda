@@ -72,6 +72,7 @@ export class CLIPSQLiteVecStore extends VectorStore
     {
         const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
         await this.addVectors(vectors, rowIds);
+        return vectors;
     }
 
     async delete(rowIDs: number[])
@@ -105,13 +106,13 @@ export class CLIPSQLiteVecStore extends VectorStore
                 .executeSync([queryVector, k, threshold])
                 .getAllSync();
 
-            const placeholders = rowIds.map(() => "?").join(",");
+            const placeholders = rows.map(() => "?").join(",");
             const photos = this.db
                 .getAllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
-            `, rowIds);
+            `, rows.map((row : any) => row.rowid));
             const photoMap = new Map(photos.map(p => [p.id, p]));
 
             return rows.map((row: any) => [

@@ -147,15 +147,16 @@ export const deleteSearchHistory = async (id: number): Promise<void> => {
  * 벡터 데이터가 없는 사진을 찾는 쿼리
  * photos 테이블에는 있는데 photo_embeddings 테이블에는 없는 데이터를 조회함
  */
-export const getPhotosMissingVector = async (limit: number = 5): Promise<Photo[]> => {
-  const query = `
-    SELECT p.* FROM photos p
-    LEFT JOIN photo_embeddings e ON p.id = e.photo_id
-    WHERE e.photo_id IS NULL
-    LIMIT ?;
-  `;
-  return await db.getAllAsync<Photo>(query, [limit]);
-};
+// 수정 -> embedding 관련 내용 분리
+// export const getPhotosMissingVector = async (limit: number = 5): Promise<Photo[]> => {
+//   const query = `
+//     SELECT p.* FROM photos p
+//     LEFT JOIN photo_embeddings e ON p.id = e.photo_id
+//     WHERE e.photo_id IS NULL
+//     LIMIT ?;
+//   `;
+//   return await db.getAllAsync<Photo>(query, [limit]);
+// };
 
 /**
  * 2. 사진 데이터 삽입/업데이트
@@ -186,38 +187,15 @@ export const insertPhoto = async (photo: Photo): Promise<void> => {
   }
 };
 
-export const insertPhotoAllFromAsset
-    = async (assets : MediaLibrary.Asset[],
-             aiTags : string[],
-             addresses : string[]) : Promise<void> =>
+export const insertPhotoAll = async (photos : Photo[]) : Promise<void> =>
 {
-  try {
-    await db.withTransactionAsync(async () => {
-      for (const index in assets) {
-        const safeArgs = [
-          assets[index].id ?? '',
-          assets[index].uri ?? '',
-          assets[index].creationTime ?? Date.now(),
-          assets[index].width ?? 0,
-          assets[index].height ?? 0,
-          (assets[index] as any).location.latitude ?? null,
-          (assets[index] as any).location.longitude ?? null,
-          addresses[index] ?? null,
-          aiTags[index] ? JSON.stringify(aiTags[index]) : null,
-        ];
-
-        db.runSync(
-            `INSERT OR REPLACE INTO photos (
-              id, local_uri, captured_at, width, height, latitude, longitude, address, ai_tags
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-            safeArgs
-        );
-      }
-    });
-  } catch (error) {
-    console.error(`❌ [DB] 저장 실패`, error);
-    throw error;
-  }
+  await db.withTransactionAsync(async () =>
+  {
+    for (const photo of photos)
+    {
+      await insertPhoto(photo);
+    }
+  });
 }
 
 /**
@@ -240,41 +218,43 @@ export const getAllPhotos = async (): Promise<Photo[]> => {
  * @param photoId 사진 ID
  * @param embedding Float32Array 형태의 512차원 벡터
  */
-export const insertPhotoEmbedding = async (
-  photoId: string,
-  embedding: Float32Array
-): Promise<void> => {
-  try {
-    // 1. Float32Array를 바이트 배열로 변환 (512 * 4 bytes = 2048 bytes)
-    const uint8Embedding = new Uint8Array(embedding.buffer);
-
-    // 2. DB에 INSERT (기존에 있으면 덮어쓰기: REPLACE)
-    db.runSync(
-      `INSERT OR REPLACE INTO photo_embeddings (photo_id, embedding) VALUES (?, ?);`,
-      [photoId, uint8Embedding]
-    );
-    
-    console.log(`✅ [DB] 벡터 저장 완료 (ID: ${photoId})`);
-  } catch (error) {
-    console.error(`❌ [DB] 벡터 저장 실패 (ID: ${photoId})`, error);
-    throw error;
-  }
-};
+// 수정 -> embedding 관련 내용 분리
+// export const insertPhotoEmbedding = async (
+//   photoId: string,
+//   embedding: Float32Array
+// ): Promise<void> => {
+//   try {
+//     // 1. Float32Array를 바이트 배열로 변환 (512 * 4 bytes = 2048 bytes)
+//     const uint8Embedding = new Uint8Array(embedding.buffer);
+//
+//     // 2. DB에 INSERT (기존에 있으면 덮어쓰기: REPLACE)
+//     db.runSync(
+//       `INSERT OR REPLACE INTO photo_embeddings (photo_id, embedding) VALUES (?, ?);`,
+//       [photoId, uint8Embedding]
+//     );
+//
+//     console.log(`✅ [DB] 벡터 저장 완료 (ID: ${photoId})`);
+//   } catch (error) {
+//     console.error(`❌ [DB] 벡터 저장 실패 (ID: ${photoId})`, error);
+//     throw error;
+//   }
+// };
 
 /**
  * 🆕 벡터 유사도 검색용 데이터 로드 (전체 벡터 가져오기)
  * 나중에 검색 엔진 고도화 시 사용
  */
-export const getAllEmbeddings = async (): Promise<{photo_id: string, embedding: Float32Array}[]> => {
-  const rows = db.getAllSync<{photo_id: string, embedding: Uint8Array}>(
-    `SELECT * FROM photo_embeddings`
-  );
-  
-  return rows.map(row => ({
-    photo_id: row.photo_id,
-    embedding: new Float32Array(row.embedding.buffer) // 다시 숫자로 복구
-  }));
-};
+// 수정 -> embedding 관련 내용 분리
+// export const getAllEmbeddings = async (): Promise<{photo_id: string, embedding: Float32Array}[]> => {
+//   const rows = db.getAllSync<{photo_id: string, embedding: Uint8Array}>(
+//     `SELECT * FROM photo_embeddings`
+//   );
+//
+//   return rows.map(row => ({
+//     photo_id: row.photo_id,
+//     embedding: new Float32Array(row.embedding.buffer) // 다시 숫자로 복구
+//   }));
+// };
 
 // 👇👇👇 [복구된 함수들] 👇👇👇
 
