@@ -1,3 +1,18 @@
+/**
+ * 📢 백엔드(명근님/지연님) 연동 가이드
+ * * 1. 검색 키워드 적재 (명근님):
+ * - handleNewSearchSession 함수 내에서 새로운 tagName이 들어올 때 
+ * DB의 SearchHistory 테이블에 저장하는 로직을 추가해 주세요.
+ * * 2. 사진 필터링 연동 (태경님/명근님):
+ * - 현재는 MediaLibrary에서 더미 데이터를 가져오고 있습니다.
+ * - handleTagPress 또는 handleNewSearchSession 실행 시, 
+ * AI 분석 결과나 DB 쿼리를 통해 특정 태그에 맞는 사진 리스트를 
+ * setPhotos()에 담아주시면 UI에 바로 반영됩니다.
+ * * 3. 저장소 로직 (명근님):
+ * - handleSavePhotos(사진 저장)와 handleCreateAlbumAI(앨범 저장) 함수 내에
+ * 실제 DB insert 로직을 구현해 주세요. 
+ * (현재는 기기 앨범 'GIDDA Saved'에 물리적으로 저장하는 로직만 있음)
+ */
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, ScrollView, Dimensions, Alert, Animated, Platform, Modal,
