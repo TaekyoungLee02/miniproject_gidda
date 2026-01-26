@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, Modal, TouchableOpacity, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -36,6 +36,7 @@ const Triangle = ({ color, rotate }: { color: string, rotate: string }) => (
 );
 
 export default function StartPage() {
+  return <Redirect href="/clip" />
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showPermissionModal, setShowPermissionModal] = useState(false); // 팝업 상태 관리
