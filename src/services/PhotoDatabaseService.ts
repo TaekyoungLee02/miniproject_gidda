@@ -1,4 +1,5 @@
 import * as MediaLibrary from 'expo-media-library'
+import * as SQLite from 'expo-sqlite';
 import * as Database from "@/src/db/database"
 import * as Sync from "@/src/db/syncService"
 import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
@@ -10,6 +11,7 @@ class PhotoDatabaseService
 {
     private static instance : PhotoDatabaseService;
     vectorStore : CLIPSQLiteVecStore;
+    label : SQLite.SQLiteDatabase;
 
 
     constructor() {
@@ -24,6 +26,7 @@ class PhotoDatabaseService
 
     async initialize()
     {
+
     }
 
     async savePhotosToDB()
