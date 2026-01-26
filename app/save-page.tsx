@@ -1,138 +1,88 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, TouchableOpacity, ScrollView, Dimensions, Alert, Animated, TextInput, KeyboardAvoidingView, Platform, Keyboard, Modal, TouchableWithoutFeedback, Easing
+    View, Text, TouchableOpacity, ScrollView, Dimensions, Alert, Animated, TextInput, KeyboardAvoidingView, Platform, Keyboard, Modal, TouchableWithoutFeedback, Easing, StyleSheet
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
-import { Menu, Search, X, Check, ArrowUp, Play, Sparkles, MessageCircle, Save, FolderPlus, Bot } from 'lucide-react-native';
+import { Menu, X, ArrowUp, Play, Sparkles, MessageCircle, Save, FolderPlus, Bot } from 'lucide-react-native';
 import * as MediaLibrary from 'expo-media-library';
 
 const { width, height } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const IMAGE_SIZE = (width - 48) / COLUMN_COUNT;
 
+// ✅ 양동이 아이콘 (돋보기 대체)
+const BucketIcon = require('../assets/images/favicon2.png');
+
 export default function SavePage() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const initialPrompt = params.prompt as string || "";
+    const userPrompt = params.prompt as string || "";
 
     // --- 상태 관리 ---
     const [activeTags, setActiveTags] = useState<string[]>([]);
     const [currentFilterIndex, setCurrentFilterIndex] = useState<number | null>(null);
-
     const [photos, setPhotos] = useState<MediaLibrary.Asset[]>([]);
     const [allPhotos, setAllPhotos] = useState<MediaLibrary.Asset[]>([]);
 
-    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    // 선택 및 보기 모드 상태
     const [selectedPhotos, setSelectedPhotos] = useState<MediaLibrary.Asset[]>([]);
+    const [viewingPhoto, setViewingPhoto] = useState<MediaLibrary.Asset | null>(null);
 
     const [inputText, setInputText] = useState("");
     const [aiAnswer, setAiAnswer] = useState<string | null>(null);
 
-    // UI 상태
+    // UI 및 애니메이션 상태
     const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
     const [isAlbumModalVisible, setIsAlbumModalVisible] = useState(false);
     const [newAlbumName, setNewAlbumName] = useState("");
-
-    // 애니메이션 값
     const slideUpAnim = useRef(new Animated.Value(300)).current;
     const menuFadeAnim = useRef(new Animated.Value(0)).current;
-    const flyAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-    const flyOpacity = useRef(new Animated.Value(0)).current;
-    const saveIconScaleAnim = useRef(new Animated.Value(1)).current;
-    const albumIconScaleAnim = useRef(new Animated.Value(1)).current;
 
-    useEffect(() => {
-        loadPhotos();
-    }, []);
+    useEffect(() => { loadPhotos(); }, []);
 
-    // 🛠️ [수정됨] 초기 로딩 및 필터링 로직 개선
     const loadPhotos = async () => {
-        // 1. 사진 가져오기
         const assets = await MediaLibrary.getAssetsAsync({ first: 50, sortBy: ['creationTime'] });
-        setAllPhotos(assets.assets); // 전체 데이터 저장 (비동기라 즉시 반영 안됨)
-
-        // 2. 태그 복원
+        setAllPhotos(assets.assets);
         let currentTags: string[] = [];
         if (params.tags) {
-            try {
-                currentTags = JSON.parse(params.tags as string);
-            } catch (e) {
-                currentTags = [initialPrompt];
-            }
-        } else if (initialPrompt && initialPrompt !== "검색 결과") {
-            currentTags = [initialPrompt];
+            try { currentTags = JSON.parse(params.tags as string); } catch (e) { currentTags = [userPrompt]; }
+        } else if (userPrompt && userPrompt !== "검색 결과") {
+            currentTags = [userPrompt];
         }
-
         setActiveTags(currentTags);
-
-        // 3. 필터링 적용 (allPhotos가 아니라 방금 가져온 assets.assets를 직접 사용)
         if (currentTags.length > 0) {
-            // 가장 최신(마지막) 태그를 선택한 상태로 만듦
             const lastIndex = currentTags.length - 1;
             const lastTag = currentTags[lastIndex];
-
-            setCurrentFilterIndex(lastIndex); // UI 하이라이트
-
-            // 시뮬레이션 필터링 로직 (handleTagPress와 동일한 로직 적용)
+            setCurrentFilterIndex(lastIndex);
             const seed = lastTag.length + lastIndex;
             const filtered = assets.assets.filter((_, i) => (i + seed) % 2 === 0 || (i + seed) % 3 === 0);
+            setPhotos(filtered);
+        } else { setPhotos(assets.assets); }
+    };
 
-            setPhotos(filtered); // 결과 표시
+    // 🛠️ 터치 로직: 짧게 터치(상세보기), 길게 터치(선택모드 진입/해제)
+    const handlePhotoPress = (photo: MediaLibrary.Asset) => {
+        if (selectedPhotos.length > 0) {
+            toggleSelection(photo);
         } else {
-            setPhotos(assets.assets); // 태그 없으면 전체 표시
+            setViewingPhoto(photo);
         }
     };
 
-    const handleNewSearch = (text: string) => {
-        if (!text.trim()) return;
-        const nextTags = [...activeTags, text];
-
-        router.push({
-            pathname: '/searching',
-            params: {
-                prompt: text,
-                tags: JSON.stringify(nextTags)
-            }
-        });
-
-        setInputText("");
-        Keyboard.dismiss();
-    };
-
-    const handleTagPress = (tag: string, index: number) => {
-        setCurrentFilterIndex(index);
-        setInputText("");
-
-        // 여기서는 이미 allPhotos가 로딩되어 있으므로 allPhotos를 써도 안전함
-        const seed = tag.length + index;
-        const filtered = allPhotos.filter((_, i) => (i + seed) % 2 === 0 || (i + seed) % 3 === 0);
-
-        setPhotos(filtered);
-    };
-
-    const removeTag = (index: number) => {
-        const newTags = activeTags.filter((_, i) => i !== index);
-        setActiveTags(newTags);
-
-        if (index === currentFilterIndex) {
-            setCurrentFilterIndex(null);
-            setPhotos(allPhotos);
-        } else if (currentFilterIndex !== null && index < currentFilterIndex) {
-            setCurrentFilterIndex(currentFilterIndex - 1);
-        }
+    const handlePhotoLongPress = (photo: MediaLibrary.Asset) => {
+        toggleSelection(photo);
     };
 
     const toggleSelection = (photo: MediaLibrary.Asset) => {
         const isSelected = selectedPhotos.find(p => p.id === photo.id);
-        let newSelection = [];
-        if (isSelected) newSelection = selectedPhotos.filter(p => p.id !== photo.id);
-        else newSelection = [...selectedPhotos, photo];
-
-        setSelectedPhotos(newSelection);
-        setIsSelectionMode(newSelection.length > 0);
+        if (isSelected) {
+            setSelectedPhotos(selectedPhotos.filter(p => p.id !== photo.id));
+        } else {
+            setSelectedPhotos([...selectedPhotos, photo]);
+        }
     };
 
     const toggleFloatingMenu = () => {
@@ -141,194 +91,162 @@ export default function SavePage() {
         setIsFloatingMenuOpen(!isFloatingMenuOpen);
     };
 
-    const runFlyAnimation = (target: 'save' | 'album') => {
-        if (!isFloatingMenuOpen) toggleFloatingMenu();
-        flyAnim.setValue({ x: width / 2 - 40, y: height - 150 });
-        flyOpacity.setValue(1);
-        const targetY = target === 'save' ? 80 : 160;
-        const targetIconAnim = target === 'save' ? saveIconScaleAnim : albumIconScaleAnim;
-
-        Animated.parallel([
-            Animated.timing(flyAnim, { toValue: { x: 30, y: targetY }, duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-            Animated.timing(flyOpacity, { toValue: 0, duration: 800, useNativeDriver: true })
-        ]).start(() => {
-            Animated.sequence([
-                Animated.timing(targetIconAnim, { toValue: 1.4, duration: 150, useNativeDriver: true }),
-                Animated.timing(targetIconAnim, { toValue: 1.0, duration: 150, useNativeDriver: true })
-            ]).start(() => {
-                const msg = target === 'save' ? "저장 내역에 보관되었습니다." : `'${newAlbumName}' 앨범이 생성되었습니다.`;
-                Alert.alert("완료", msg);
-                setIsSelectionMode(false); setSelectedPhotos([]); if (target === 'album') setIsAlbumModalVisible(false); setNewAlbumName(""); setTimeout(() => toggleFloatingMenu(), 500);
-            });
-        });
+    const closeAiCard = () => {
+        Animated.timing(slideUpAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => setAiAnswer(null));
     };
-
-    const handleSavePhotos = () => { if (selectedPhotos.length === 0) return; runFlyAnimation('save'); };
-    const handleCreateAlbum = () => { if (!newAlbumName.trim()) { Alert.alert("알림", "앨범 이름을 입력해주세요."); return; } setIsAlbumModalVisible(false); setTimeout(() => runFlyAnimation('album'), 200); };
-
-    const handleGoToChatbot = () => {
-        const targetUris = selectedPhotos.length > 0 ? selectedPhotos.map(p => p.uri) : [photos[0]?.uri];
-        router.push({ pathname: '/ask-photo', params: { uris: JSON.stringify(targetUris) } });
-    };
-
-    const handleQuickAsk = () => {
-        if (!inputText.trim()) return;
-        Keyboard.dismiss();
-        setAiAnswer("분석 중...");
-        Animated.timing(slideUpAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
-        setTimeout(() => {
-            const answer = selectedPhotos.length > 0 ? `선택하신 ${selectedPhotos.length}장의 사진은 표정이 아주 밝네요! 😊` : `"${inputText}"에 대해 찾아보니, 이건 말티즈 강아지네요!`;
-            setAiAnswer(answer);
-        }, 1000);
-        setInputText("");
-    };
-    const closeAiCard = () => { Animated.timing(slideUpAnim, { toValue: 300, duration: 200, useNativeDriver: true }).start(() => { setAiAnswer(null); }); };
 
     return (
-        <SafeAreaView className="flex-1 bg-white relative">
+        <View style={styles.container}>
             <StatusBar style="dark" />
+            <SafeAreaView style={{ flex: 1 }}>
 
-            {/* --- 상단 헤더 --- */}
-            <View className="px-6 pt-2 pb-4 bg-white border-b border-gray-100 z-20 relative">
-                <View className="flex-row justify-between items-center mb-4">
-                    <TouchableOpacity onPress={toggleFloatingMenu} className="p-1 -ml-1">
-                        <Menu color="black" size={28} />
-                    </TouchableOpacity>
+                {/* --- 헤더 섹션 --- */}
+                <View style={styles.header}>
+                    <View style={styles.headerTop}>
+                        <TouchableOpacity onPress={toggleFloatingMenu}>
+                            <Menu color="#F38A2C" size={32} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                        <Text style={styles.logoText}>GIDDA</Text>
+                        <TouchableOpacity onPress={() => router.push('/ask-photo')}>
+                            <Bot color="#F38A2C" size={32} strokeWidth={2.5} />
+                        </TouchableOpacity>
+                    </View>
 
-                    <Text className="text-orange-500 text-2xl font-bold tracking-tighter">GIDDA</Text>
-
-                    <TouchableOpacity onPress={handleGoToChatbot} className="p-1 -mr-1">
-                        <Bot color="black" size={28} />
-                    </TouchableOpacity>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagScroll}>
+                        {activeTags.map((tag, index) => (
+                            <View key={index} style={[styles.tagItem, currentFilterIndex === index && styles.tagItemActive]}>
+                                <TouchableOpacity onPress={() => { setCurrentFilterIndex(index); }} style={styles.tagContent}>
+                                    <Text style={[styles.tagText, currentFilterIndex === index && styles.tagTextActive]}>#{tag}</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setActiveTags(activeTags.filter((_, i) => i !== index))} style={styles.tagRemove}>
+                                    <X size={14} color={currentFilterIndex === index ? "#F38A2C" : "#999"} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </ScrollView>
                 </View>
 
-                {/* 🏷️ 태그 리스트 */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-                    {activeTags.length === 0 ? (
-                        <Text className="text-gray-400 py-1">검색어를 입력하여 사진을 찾아보세요</Text>
-                    ) : (
-                        activeTags.map((tag, index) => {
-                            const isActive = currentFilterIndex === index;
+                {/* --- 📸 사진 그리드 --- */}
+                <ScrollView style={styles.gridScroll} contentContainerStyle={{ paddingBottom: 150 }}>
+                    <View style={styles.photoGrid}>
+                        {photos.map((photo) => {
+                            const isSelected = selectedPhotos.find(p => p.id === photo.id);
                             return (
-                                <View
-                                    key={index}
-                                    className={`rounded-full flex-row items-center border mr-2 overflow-hidden ${isActive ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}
+                                <TouchableOpacity
+                                    key={photo.id}
+                                    activeOpacity={0.8}
+                                    style={styles.photoWrap}
+                                    onPress={() => handlePhotoPress(photo)}
+                                    onLongPress={() => handlePhotoLongPress(photo)}
                                 >
-                                    <TouchableOpacity onPress={() => handleTagPress(tag, index)} className="pl-3 py-1 pr-1 max-w-[120px]">
-                                        <Text className={`font-medium ${isActive ? 'text-orange-600' : 'text-gray-600'}`} numberOfLines={1} ellipsizeMode="tail">#{tag}</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => removeTag(index)} className="pr-2 py-1 pl-1">
-                                        <X size={14} color={isActive ? "#EA580C" : "#999"} />
-                                    </TouchableOpacity>
-                                </View>
+                                    <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
+                                    {/* ✅ 선택 시 어두워지는 효과 (체크박스 대신) */}
+                                    {isSelected && <View style={styles.selectedOverlay} />}
+                                </TouchableOpacity>
                             );
-                        })
-                    )}
+                        })}
+                    </View>
                 </ScrollView>
 
-                {/* 사이드바 메뉴 */}
-                <Animated.View style={{ position: 'absolute', top: 60, left: 20, opacity: menuFadeAnim, zIndex: 50, display: isFloatingMenuOpen ? 'flex' : 'none' }} className="space-y-6">
-                    <Animated.View style={{ transform: [{ scale: saveIconScaleAnim }] }}>
-                        <TouchableOpacity className="items-center justify-center shadow-xl active:scale-95">
-                            <View className="bg-orange-500 w-14 h-14 rounded-full items-center justify-center border-2 border-white"><Play fill="white" color="white" size={24} style={{ transform: [{ rotate: '-90deg' }], marginLeft: -2 }} /></View>
-                            <Text className="text-orange-500 text-xs font-bold mt-1 shadow-sm bg-white/80 px-1 rounded">저장 내역</Text>
+                {/* --- 하단 컨트롤 바 --- */}
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.controlBar}>
+                    <View style={styles.inputArea}>
+                        {selectedPhotos.length > 0 && (
+                            <View style={styles.selectionActions}>
+                                <TouchableOpacity style={styles.actionBtn}><Save color="#F38A2C" size={24} /></TouchableOpacity>
+                                <TouchableOpacity style={styles.actionBtn} onPress={() => setIsAlbumModalVisible(true)}><FolderPlus color="#F38A2C" size={24} /></TouchableOpacity>
+                            </View>
+                        )}
+
+                        <View style={[styles.searchBox, selectedPhotos.length > 0 && styles.searchBoxActive]}>
+                            {/* ✅ 양동이 아이콘으로 돋보기 대체 */}
+                            <Image source={BucketIcon} style={styles.customBucketIcon} contentFit="contain" />
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder={selectedPhotos.length > 0 ? `${selectedPhotos.length}장 선택됨...` : "검색어 입력"}
+                                placeholderTextColor="#CCC"
+                                value={inputText}
+                                onChangeText={setInputText}
+                            />
+                        </View>
+
+                        <TouchableOpacity style={[styles.sendBtn, inputText && styles.sendBtnActive]}>
+                            <ArrowUp color="white" size={24} />
                         </TouchableOpacity>
-                    </Animated.View>
-                    <Animated.View style={{ transform: [{ scale: albumIconScaleAnim }] }}>
-                        <TouchableOpacity className="items-center justify-center shadow-xl active:scale-95">
-                            <View className="bg-white w-14 h-14 rounded-full items-center justify-center border-2 border-orange-200"><Play fill="#FB923C" color="#FB923C" size={24} style={{ transform: [{ rotate: '90deg' }], marginLeft: 4 }} /></View>
-                            <Text className="text-gray-500 text-xs font-bold mt-1 shadow-sm bg-white/80 px-1 rounded">앨범 목록</Text>
+
+                        <TouchableOpacity style={styles.kakaoBtn} onPress={() => Alert.alert("공유", "카카오톡 전송")}>
+                            <MessageCircle fill="black" size={24} color="black" />
                         </TouchableOpacity>
-                    </Animated.View>
-                </Animated.View>
-            </View>
-
-            {/* 배경 오버레이 */}
-            {isFloatingMenuOpen && <TouchableWithoutFeedback onPress={toggleFloatingMenu}><View className="absolute inset-0 z-10 bg-black/5" /></TouchableWithoutFeedback>}
-
-            {/* --- 사진 그리드 --- */}
-            <ScrollView className="flex-1 px-6 pt-4" contentContainerStyle={{ paddingBottom: 150 }}>
-                <View className="flex-row flex-wrap justify-between">
-                    {photos.map((photo) => {
-                        const isSelected = selectedPhotos.find(p => p.id === photo.id);
-                        return (
-                            <TouchableOpacity key={photo.id} activeOpacity={0.7} className="mb-2 rounded-xl overflow-hidden relative" onPress={() => toggleSelection(photo)}>
-                                <Image source={{ uri: photo.uri }} style={{ width: IMAGE_SIZE, height: IMAGE_SIZE }} contentFit="cover" />
-                                {isSelectionMode && (
-                                    <View className={`absolute inset-0 items-center justify-center ${isSelected ? 'bg-black/40 border-4 border-orange-500' : 'bg-white/20'}`}>{isSelected && <Check color="white" size={32} strokeWidth={4} />}</View>
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
-                    {photos.length === 0 && (
-                        <View className="w-full items-center mt-10">
-                            <Text className="text-gray-400">검색 결과가 없습니다.</Text>
-                        </View>
-                    )}
-                </View>
-            </ScrollView>
-
-            {/* --- 하단 컨트롤 바 --- */}
-            <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} className="absolute bottom-0 w-full bg-white border-t border-gray-200 shadow-2xl z-40">
-                <View className="px-4 pt-4 pb-10 flex-row items-center gap-2">
-                    {isSelectionMode ? (
-                        <View className="flex-row gap-2">
-                            <TouchableOpacity onPress={handleSavePhotos} className="bg-gray-100 w-12 h-12 rounded-xl items-center justify-center border border-gray-300"><Save color="#555" size={24} /></TouchableOpacity>
-                            <TouchableOpacity onPress={() => setIsAlbumModalVisible(true)} className="bg-gray-100 w-12 h-12 rounded-xl items-center justify-center border border-gray-300"><FolderPlus color="#555" size={24} /></TouchableOpacity>
-                        </View>
-                    ) : null}
-
-                    <View className={`flex-1 bg-gray-100 h-12 rounded-full flex-row items-center px-4 border ${isSelectionMode ? 'border-orange-200' : 'border-gray-200'}`}>
-                        {isSelectionMode ? null : <Search color="#999" size={20} />}
-                        <TextInput
-                            className="flex-1 ml-2 text-base text-gray-800"
-                            placeholder={isSelectionMode ? "선택한 사진 질문..." : "검색어 입력"}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            onSubmitEditing={isSelectionMode ? handleQuickAsk : () => handleNewSearch(inputText)}
-                            returnKeyType={isSelectionMode ? "done" : "search"}
-                        />
-                    </View>
-
-                    <TouchableOpacity onPress={isSelectionMode ? handleQuickAsk : () => handleNewSearch(inputText)} disabled={!inputText} className={`w-12 h-12 rounded-full items-center justify-center ${inputText ? 'bg-orange-500' : 'bg-gray-300'}`}>
-                        {isSelectionMode ? <ArrowUp color="white" size={24} /> : <Search color="white" size={24} />}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity className="bg-[#FEE500] w-12 h-12 rounded-full items-center justify-center" onPress={() => Alert.alert("공유", "카카오톡 전송")}><MessageCircle fill="black" size={24} color="black" /></TouchableOpacity>
-                </View>
-
-                {/* AI 답변 카드 */}
-                {aiAnswer && (
-                    <Animated.View style={{ transform: [{ translateY: slideUpAnim }] }} className="absolute bottom-full mb-4 left-4 right-4 bg-gray-900 p-5 rounded-2xl shadow-xl z-50">
-                        <View className="flex-row justify-between items-start">
-                            <View className="flex-row items-center mb-2"><Sparkles color="#FEE500" size={16} style={{ marginRight: 6 }} /><Text className="text-white font-bold text-lg">AI 분석</Text></View>
-                            <TouchableOpacity onPress={closeAiCard}><X color="white" size={20} /></TouchableOpacity>
-                        </View>
-                        <Text className="text-gray-200 leading-6">{aiAnswer}</Text>
-                    </Animated.View>
-                )}
-            </KeyboardAvoidingView>
-
-            {/* --- 앨범 생성 모달 --- */}
-            <Modal visible={isAlbumModalVisible} transparent={true} animationType="fade" onRequestClose={() => setIsAlbumModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center items-center bg-black/50 px-6">
-                    <View className="bg-white w-full rounded-3xl p-6 items-center shadow-2xl">
-                        <Text className="text-xl font-bold mb-2">새 앨범 만들기</Text>
-                        <Text className="text-gray-500 mb-6 text-center">선택한 {selectedPhotos.length}장의 사진을 담을{'\n'}앨범 이름을 입력해주세요.</Text>
-                        <View className="w-full bg-gray-100 rounded-xl px-4 py-3 mb-6 border border-gray-200"><TextInput className="text-lg text-center" placeholder="예) 우리집 댕댕이" value={newAlbumName} onChangeText={setNewAlbumName} autoFocus={true} /></View>
-                        <View className="flex-row gap-3 w-full">
-                            <TouchableOpacity onPress={() => setIsAlbumModalVisible(false)} className="flex-1 py-4 bg-gray-200 rounded-xl items-center"><Text className="font-bold text-gray-600">취소</Text></TouchableOpacity>
-                            <TouchableOpacity onPress={handleCreateAlbum} className="flex-1 py-4 bg-orange-500 rounded-xl items-center"><Text className="font-bold text-white">생성</Text></TouchableOpacity>
-                        </View>
                     </View>
                 </KeyboardAvoidingView>
+            </SafeAreaView>
+
+            {/* ✅ 1. 사진 전체 보기 + 하단 정보 모달 */}
+            <Modal visible={!!viewingPhoto} transparent={false} animationType="slide">
+                <View style={styles.fullViewContainer}>
+                    <SafeAreaView style={{ flex: 1 }}>
+                        <TouchableOpacity style={styles.closeFullView} onPress={() => setViewingPhoto(null)}>
+                            <X color="white" size={30} />
+                        </TouchableOpacity>
+
+                        <View style={styles.fullImageWrap}>
+                            {viewingPhoto && <Image source={{ uri: viewingPhoto.uri }} style={styles.fullImage} contentFit="contain" />}
+                        </View>
+
+                        {/* ✅ 사진 하단 정보 및 키워드 추출 영역 */}
+                        <View style={styles.photoInfoSection}>
+                            <View style={styles.infoHandle} />
+                            <Text style={styles.infoDate}>2024년 1월 25일 오후 3:18</Text>
+                            <View style={styles.keywordList}>
+                                <Text style={styles.keywordTag}>[안녕]</Text>
+                                <Text style={styles.keywordTag}>[추억]</Text>
+                                <Text style={styles.keywordTag}>[강아지]</Text>
+                            </View>
+                            <Text style={styles.infoDesc}>당신의 소중한 기억을 긷어 올렸습니다.</Text>
+                        </View>
+                    </SafeAreaView>
+                </View>
             </Modal>
-
-            {/* --- 애니메이션 요소 --- */}
-            <Animated.View style={{ position: 'absolute', zIndex: 100, pointerEvents: 'none', transform: [{ translateX: flyAnim.x }, { translateY: flyAnim.y }, { scale: flyOpacity }], opacity: flyOpacity }}>
-                <View className="items-center justify-center rotate-12 shadow-2xl"><Image source={{ uri: selectedPhotos[0]?.uri }} style={{ width: 80, height: 80, borderRadius: 16, borderWidth: 4, borderColor: 'white' }} contentFit="cover" /></View>
-            </Animated.View>
-
-        </SafeAreaView>
+        </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#FFFCF5' },
+    header: { paddingHorizontal: 25, paddingVertical: 15, backgroundColor: 'white' },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    logoText: { fontFamily: 'Montserrat-Regular', fontSize: 28, color: '#F38A2C' },
+    tagScroll: { flexDirection: 'row' },
+    tagItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9F9F9', borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#EEE' },
+    tagItemActive: { backgroundColor: '#FFF5EB', borderColor: '#F38A2C' },
+    tagContent: { paddingLeft: 12, paddingVertical: 6, paddingRight: 4 },
+    tagText: { fontSize: 14, color: '#888' },
+    tagTextActive: { color: '#F38A2C', fontWeight: 'bold' },
+    tagRemove: { paddingRight: 8 },
+    gridScroll: { flex: 1, paddingHorizontal: 20, paddingTop: 10 },
+    photoGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    photoWrap: { marginBottom: 10, borderRadius: 15, overflow: 'hidden', position: 'relative' },
+    photo: { width: IMAGE_SIZE, height: IMAGE_SIZE },
+    selectedOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' }, // ✅ 선택 시 어두워지는 효과
+    controlBar: { position: 'absolute', bottom: 0, width: '100%', backgroundColor: 'white' },
+    inputArea: { paddingHorizontal: 15, paddingTop: 15, paddingBottom: 40, flexDirection: 'row', alignItems: 'center' },
+    selectionActions: { flexDirection: 'row', marginRight: 10 },
+    actionBtn: { width: 48, height: 48, backgroundColor: '#F9F9F9', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 5 },
+    searchBox: { flex: 1, height: 48, backgroundColor: '#F9F9F9', borderRadius: 24, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
+    searchBoxActive: { borderColor: '#F38A2C', borderWidth: 1 },
+    customBucketIcon: { width: 24, height: 24, marginRight: 8 }, // ✅ 양동이 아이콘
+    textInput: { flex: 1, fontSize: 16 },
+    sendBtn: { width: 48, height: 48, backgroundColor: '#DDD', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+    sendBtnActive: { backgroundColor: '#F38A2C' },
+    kakaoBtn: { width: 48, height: 48, backgroundColor: '#FEE500', borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+    fullViewContainer: { flex: 1, backgroundColor: 'black' },
+    closeFullView: { position: 'absolute', top: 20, right: 25, zIndex: 10 },
+    fullImageWrap: { flex: 1, justifyContent: 'center' },
+    fullImage: { width: '100%', height: '70%' },
+    photoInfoSection: { backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, paddingBottom: 50 },
+    infoHandle: { width: 40, height: 5, backgroundColor: '#DDD', borderRadius: 5, alignSelf: 'center', marginBottom: 20 },
+    infoDate: { fontFamily: 'Pretendard-Bold', fontSize: 18, color: '#333', marginBottom: 10 },
+    keywordList: { flexDirection: 'row', gap: 8, marginBottom: 15 },
+    keywordTag: { fontFamily: 'Pretendard-Bold', fontSize: 16, color: '#F38A2C' },
+    infoDesc: { fontFamily: 'Pretendard-Regular', fontSize: 15, color: '#666', lineHeight: 22 }
+});

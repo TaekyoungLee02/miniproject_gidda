@@ -1,117 +1,100 @@
 // src/services/analysisService.ts
-import { getNoGpsPhotos, updatePhotoLocation, insertPhoto } from './database';
+import { 
+  getPhotosMissingVector, // 🆕 새로 만들어야 할 DB 조회 함수
+  updatePhotoLocation, 
+  updatePhotoTags, 
+  insertPhotoEmbedding 
+} from './database';
 import { identifyLocationFromTags } from './azure';
-
-// /**
-//  * [테스트용] 가짜 사진 데이터 주입 함수
-//  * 에뮬레이터 갤러리가 고장 났을 때, 강제로 DB에 사진을 넣어서 테스트하기 위함
-//  */
-// export const injectFakeData = async () => {
-//   const fakePhoto = {
-//     id: `fake_${Date.now()}`,
-//     local_uri: 'https://via.placeholder.com/150/0000FF/808080?Text=JejuSample', // 인터넷 가짜 이미지
-//     captured_at: Date.now(),
-//     width: 1000,
-//     height: 1000,
-//     latitude: null, // GPS 없음 (핵심)
-//     longitude: null, // GPS 없음
-//     address: null,
-//     ai_tags: 'sea, rock, blue', // MobileNet이 찾았다고 가정
-//   };
-
-//   await insertPhoto(fakePhoto);
-//   console.log('✅ 가짜 데이터 주입 완료:', fakePhoto.id);
-//   return fakePhoto;
-// };
-
-// /**
-//  * 🚀 [핵심 파이프라인] 위치 추론 실행
-//  * 1. GPS 없는 사진 조회
-//  * 2. (가짜) 백엔드 API 전송
-//  * 3. 결과 받아서 DB 업데이트
-//  */
-// export const runAnalysisPipeline = async () => {
-//   console.log('🚀 AI 위치 분석 파이프라인 가동...');
-
-//   // 1. 분석 대상 조회 (Latitude가 NULL인 사진들)
-//   const targetPhotos = await getNoGpsPhotos(10); // 10장만 가져오기
-  
-//   if (targetPhotos.length === 0) {
-//     console.log('🤷‍♂️ 분석할 사진이 없습니다. (모두 GPS가 있거나 데이터가 없음)');
-//     return 0;
-//   }
-
-//   console.log(`📦 분석 대상: ${targetPhotos.length}장 발견. 백엔드로 전송 중...`);
-
-//   // 2. (Simulated) 백엔드 API 호출 - 2초 걸린다고 가정
-//   // 실제로는 여기서 fetch('https://api.gidda.com/analyze', ...)를 씀
-//   await new Promise(resolve => setTimeout(resolve, 2000));
-
-//   // 3. 백엔드가 결과를 줬다고 가정 (Mock Response)
-//   // "야, 이거 태그 보니까 제주도 서귀포시네!" 라고 응답이 옴
-//   const mockResponse = targetPhotos.map(photo => ({
-//     id: photo.id,
-//     inferred_address: '제주도 서귀포시 (AI 추론됨)' 
-//   }));
-
-//   // 4. DB 업데이트 (Loop)
-//   let updatedCount = 0;
-//   for (const item of mockResponse) {
-//     await updatePhotoAddress(item.id, item.inferred_address);
-//     updatedCount++;
-//   }
-
-//   console.log(`✨ 분석 완료! ${updatedCount}장의 주소를 '제주도'로 업데이트함.`);
-//   return updatedCount;
-// };
+import { preprocessImage } from '../utils/imageUtils'; // 전처리 함수 임포트
 
 /**
- * 🚀 [핵심 파이프라인] 위치 추론 실행 로직
- * * [동작 순서]
- * 1. DB에서 GPS(위도/경도)가 없는 사진을 최대 5장 가져온다. (Batch Processing)
- * 2. 각 사진에 대해 반복문(Loop)을 돌린다.
- * 3. 사진에 'ai_tags'가 있는지 확인한다.
- * 4. 있다면 Azure GPT에게 위치를 물어본다.
- * 5. 답이 오면 DB의 'address' 컬럼을 업데이트한다.
+ * 🤖 [MobileCLIP] 실제 온디바이스 추론 실행 함수
+ * (태경: 실제 라이브러리 연동 시 이 부분을 해당 라이브러리 호출로 교체할 것)
  */
-export const runAnalysisPipeline = async () => {
-  console.log('🚀 [Pipeline] 위치 분석 파이프라인 가동 시작...');
+const getMobileCLIPResult = async (photoUri: string): Promise<{ 
+  embedding: Float32Array, 
+  tags: string 
+}> => {
+  console.log(`📡 [MobileCLIP] 추론 엔진 가동: ${photoUri}`);
+  
+  // TODO: 실제 On-Device MobileCLIP 모델 호출 (예: NativeModule 혹은 TensorFlow Lite)
+  // return await MobileCLIPModule.analyzeImage(photoUri);
+  
+  // 구조 확인을 위한 임시 반환값 (실제 연동 전까지 유지)
+  return {
+    embedding: new Float32Array(512).fill(Math.random()), // 실제 512차원 벡터가 올 자리
+    tags: "beach, ocean, jeju island"             // 실제 태그가 올 자리
+  };
+};
 
-  // 1. 분석 대상 조회 (한 번에 너무 많이 하면 앱 느려지므로 5개씩 끊어서 처리)
-  // getNoGpsPhotos는 latitude IS NULL 인 항목을 가져옴
-  const targetPhotos = await getNoGpsPhotos(5); 
+/**
+ * 🚀 통합 분석 파이프라인
+ * 배치(Batch) 처리를 통해 과부하를 방지함
+ */
+export const runAnalysisPipeline = async (batchSize: number = 5) => {
+  console.log(`🔄 [Pipeline] 새 사진 ${batchSize}장 분석 시작...`);
+
+  const targetPhotos = await getPhotosMissingVector(batchSize);
   
   if (targetPhotos.length === 0) {
-    console.log('🤷‍♂️ [Pipeline] 분석할 사진이 없습니다. (모두 GPS가 있거나 데이터 없음)');
+    console.log('🤷‍♂️ [Pipeline] 새로 분석할 사진이 없습니다.');
     return 0;
   }
 
-  console.log(`📦 [Pipeline] 분석 대상 ${targetPhotos.length}장 발견. 순차 처리 시작.`);
-
   let successCount = 0;
 
-  // 2. 순차 처리 (Promise.all보다 for...of가 디버깅과 속도 제어에 유리함)
+  // 2. 순차 처리 시작
   for (const photo of targetPhotos) {
-    
-    // (중요) 태그가 비어있으면 Azure에 보낼 필요가 없음
-    if (!photo.ai_tags) {
-      console.log(`⚠️ [Pipeline] ID(${photo.id})는 태그 정보가 없어 건너뜁니다.`);
-      continue;
-    }
+    try {
+      // 🆕 [변경점] CLIP으로 바로 보내지 않고 전처리를 먼저 거침
+      const processedImage = await preprocessImage(photo.local_uri);
 
-    // 3. Azure AI 호출
-    console.log(`🔍 [Pipeline] ID(${photo.id}) 분석 중... (Tags: ${photo.ai_tags})`);
-    const locationName = await identifyLocationFromTags(photo);
+      // ---------------------------------------------------------
+      // 🆕 [STEP 1] MobileCLIP 1회 실행으로 벡터와 태그 동시에 획득
+      // ---------------------------------------------------------
+      // 전처리된 데이터를 모델 파트(태경)의 함수로 전달
+      const { embedding, tags } = await getMobileCLIPResult(processedImage);
+  
+      // ---------------------------------------------------------
+      // 🆕 [STEP 2] 벡터는 '무조건' 저장 (모든 사진 공통)
+      // ---------------------------------------------------------
+      await insertPhotoEmbedding(photo.id, embedding);
+      console.log(`🔢 [Vector] ID(${photo.id}) 벡터 저장 완료.`);
 
-    // 4. 결과 저장
-    if (locationName && locationName !== '알 수 없는 장소') {
-      await updatePhotoLocation(photo.id, locationName);
-      successCount++;
-    } else {
-      console.log(`💨 [Pipeline] 장소 추론 실패 또는 불명확 (ID: ${photo.id})`);
+      // ---------------------------------------------------------
+      // 🆕 [STEP 3] GPS 유무에 따른 조건부 위치 추론 (Azure GPT)
+      // ---------------------------------------------------------
+      const needsGpsInference = !photo.latitude || !photo.longitude;
+
+
+      if (needsGpsInference) {
+        const currentTags = tags.trim() !== "" ? tags : "nomatch";
+        await updatePhotoTags(photo.id, currentTags);
+
+        if (currentTags !== "nomatch") {
+          // Azure GPT를 통한 위치 특정
+          const locationData = await identifyLocationFromTags({ ...photo, ai_tags: currentTags });
+
+          if (locationData) {
+            await updatePhotoLocation(
+              photo.id, 
+              locationData.name, 
+              locationData.latitude, 
+              locationData.longitude
+            );
+            successCount++;
+          }
+        }
+      } else {
+        console.log(`✅ [GPS 있음] ID(${photo.id}) 추가 분석 불필요. 스킵.`);
+      }
+
+    } catch (err) {
+      console.error(`❌ [Pipeline] ID ${photo.id} 처리 중 장애 발생:`, err);
     }
   }
 
-  console.log(`✅ [Pipeline] 파이프라인 종료. 총 ${successCount}장의 위치 정보 업데이트 완료.`);
+  console.log(`✅ [Pipeline] 파이프라인 종료. 이번 회차 처리 완료.`);
   return successCount;
 };

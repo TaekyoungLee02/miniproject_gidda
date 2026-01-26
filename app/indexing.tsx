@@ -1,127 +1,181 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, Dimensions } from 'react-native'; // ❌ 여기서 Image 삭제
-import { Image } from 'expo-image'; // ✅ expo-image에서 Image 가져오기
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Dimensions, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+    FadeIn,
+    useSharedValue,
+    useAnimatedStyle,
+    withTiming,
+    withRepeat,
+    withSequence,
+    withSpring,
+    Easing
+} from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
+// ✅ 합체된 아이콘 사용 (좌우 조각 대신 splash-icon 사용을 권장합니다)
+const M_Icon = require('../assets/images/splash-icon.png');
+
 export default function IndexingPage() {
     const router = useRouter();
-
-    // 상태 관리
-    const [photos, setPhotos] = useState<MediaLibrary.Asset[]>([]);
     const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
-    const [statusText, setStatusText] = useState('추억 저장소 여는 중...');
-
+    const [statusText, setStatusText] = useState('#추억_저장소_여는_중');
     const slideIndex = useRef(0);
+
+    // --- 🧩 M자 바운스 애니메이션용 SharedValues ---
+    const mScale = useSharedValue(1);
+    const mTranslateY = useSharedValue(0);
 
     useEffect(() => {
         startProcess();
+
+        // 1️⃣ M자가 위아래로 통통 튀면서 커졌다 작아지는 효과
+        mTranslateY.value = withRepeat(
+            withSequence(
+                withTiming(-15, { duration: 600, easing: Easing.out(Easing.quad) }),
+                withSpring(0, { damping: 4, stiffness: 100 })
+            ),
+            -1,
+            false
+        );
+
+        mScale.value = withRepeat(
+            withSequence(
+                withTiming(1.1, { duration: 600 }),
+                withTiming(1, { duration: 600 })
+            ),
+            -1,
+            true
+        );
     }, []);
 
     const startProcess = async () => {
-        // 1. 사진 가져오기
-        const album = await MediaLibrary.getAssetsAsync({
-            mediaType: 'photo',
-            first: 100,
-            sortBy: [[MediaLibrary.SortBy.creationTime, true]],
-        });
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') { router.replace('/'); return; }
 
+        const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
         if (album.assets.length > 0) {
-            setPhotos(album.assets);
             setCurrentPhoto(album.assets[0].uri);
-
-            // 2. 슬라이드 쇼 (0.6초 간격)
             const slideInterval = setInterval(() => {
                 slideIndex.current = (slideIndex.current + 1) % album.assets.length;
                 setCurrentPhoto(album.assets[slideIndex.current].uri);
-            }, 600);
+            }, 500);
 
-            // 3. 분석 시뮬레이션
-            await simulateIndexing(album.assets.length);
-
-            // 4. 완료 후 이동
+            for (let i = 0; i <= 100; i++) {
+                setProgress(i);
+                if (i === 30) setStatusText('#여행의_기록');
+                if (i === 60) setStatusText('#맛있는_음식');
+                if (i === 90) setStatusText('#분석_마무리_중');
+                await new Promise(r => setTimeout(r, 60));
+            }
             clearInterval(slideInterval);
             router.replace('/welcome');
-
-        } else {
-            setStatusText('사진이 없어서 분석을 건너뜁니다.');
-            setTimeout(() => router.replace('/welcome'), 2000);
         }
     };
 
-    const simulateIndexing = async (totalCount: number) => {
-        setStatusText('오래된 추억을 스캔하는 중...');
-
-        for (let i = 0; i <= totalCount; i++) {
-            const currentProgress = Math.round((i / totalCount) * 100);
-            setProgress(currentProgress);
-
-            if (currentProgress === 30) setStatusText('잊고 있던 여행 사진 발견...');
-            if (currentProgress === 60) setStatusText('맛있는 음식 사진 분류 중...');
-            if (currentProgress === 90) setStatusText('분석이 거의 끝났습니다!');
-
-            await new Promise(resolve => setTimeout(resolve, 50));
-        }
-    };
+    const mAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: mTranslateY.value }, { scale: mScale.value }]
+    }));
 
     return (
-        <View className="flex-1 bg-black items-center justify-center relative">
-            <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: '#FFFCF5' }}>
+            <StatusBar style="dark" />
 
-            {/* 📸 배경 슬라이드 이미지 (expo-image 사용) */}
-            {currentPhoto && (
-                <Animated.View
-                    key={currentPhoto}
-                    entering={FadeIn.duration(500)}
-                    className="absolute w-full h-full opacity-60"
-                >
-                    <Image
-                        source={{ uri: currentPhoto }}
-                        style={{ width: '100%', height: '100%' }} // NativeWind 대신 style 직접 사용 (호환성 최적화)
-                        contentFit="cover" // resizeMode 대신 contentFit 사용
-                        blurRadius={5}
-                        transition={200} // 부드러운 전환 효과 추가
-                    />
-                    <View className="absolute w-full h-full bg-black/40" />
-                </Animated.View>
-            )}
-
-            {/* 📊 전경 UI */}
-            <SafeAreaView className="w-full px-8 items-center z-10">
-
-                <View className="items-center mb-10">
-                    <Text className="text-white text-2xl font-bold mb-2 tracking-widest">
-                        INDEXING
-                    </Text>
-                    <Text className="text-gray-300 text-sm font-medium">
-                        {statusText}
-                    </Text>
+            {/* 📸 1. 중앙 사진 슬라이드 영역 (프레임 위아래 여백 최소화) */}
+            <View style={styles.photoFrame}>
+                <View style={styles.orangeLine} />
+                <View style={{ flex: 1, backgroundColor: '#000' }}>
+                    {currentPhoto && (
+                        <Animated.View key={currentPhoto} entering={FadeIn.duration(300)} style={{ flex: 1 }}>
+                            <Image source={{ uri: currentPhoto }} style={{ width: '100%', height: '100%', opacity: 0.9 }} contentFit="cover" />
+                        </Animated.View>
+                    )}
                 </View>
+                <View style={styles.orangeLine} />
+            </View>
 
-                <View className="w-full h-1 bg-gray-700 rounded-full overflow-hidden mb-4">
-                    <View
-                        className="h-full bg-orange-500 rounded-full"
-                        style={{ width: `${progress}%` }}
-                    />
+            {/* 📊 2. 글래스모피즘 박스 UI */}
+            <View style={styles.overlay} pointerEvents="none">
+                <View style={styles.glassBox}>
+                    <Animated.View style={mAnimatedStyle}>
+                        <Image source={M_Icon} style={styles.mIcon} contentFit="contain" />
+                    </Animated.View>
+
+                    <Text style={styles.hashtag}>{statusText}</Text>
+                    <Text style={styles.progressText}>{progress}%</Text>
                 </View>
+            </View>
 
-                <Text className="text-orange-400 font-bold text-lg self-end">
-                    {progress}%
-                </Text>
-
-                <View className="absolute bottom-[-100px] items-center">
-                    <Text className="text-gray-500 text-xs">
-                        앱을 종료하지 마세요.
-                    </Text>
-                </View>
-
+            {/* 🏷️ 3. 최하단 안내 문구 */}
+            <SafeAreaView style={styles.footer}>
+                <Text style={styles.footerText}>앱을 종료하지 마세요.</Text>
             </SafeAreaView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    photoFrame: {
+        position: 'absolute',
+        // ✅ 피그마 요청대로 위아래 여백을 대폭 줄여 사진 노출 극대화
+        top: height * 0.1,
+        height: height * 0.75,
+        width: '100%',
+    },
+    orangeLine: {
+        width: '100%',
+        height: 4,
+        backgroundColor: '#F38A2C',
+    },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    glassBox: {
+        backgroundColor: 'rgba(255, 252, 245, 0.96)',
+        width: 190,
+        height: 190,
+        borderRadius: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#F38A2C",
+        shadowOffset: { width: 0, height: 15 },
+        shadowOpacity: 0.15,
+        shadowRadius: 25,
+    },
+    mIcon: {
+        width: 85, // 아이콘 크기 확대
+        height: 85,
+    },
+    hashtag: {
+        fontFamily: 'Pretendard-Bold',
+        fontSize: 18,
+        color: '#F38A2C',
+        marginTop: 15,
+    },
+    progressText: {
+        fontFamily: 'Montserrat-Regular',
+        fontSize: 28,
+        fontWeight: '800',
+        color: '#F38A2C',
+        marginTop: 5,
+    },
+    footer: {
+        position: 'absolute',
+        bottom: 40,
+        width: '100%',
+        alignItems: 'center',
+    },
+    footerText: {
+        fontFamily: 'Pretendard-Regular',
+        fontSize: 14,
+        color: '#BBB',
+    }
+});

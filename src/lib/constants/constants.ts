@@ -20,3 +20,5 @@ export const MODEL_MODULES = {
 export const IMG_HEIGHT_WIDTH : number = 256;
 export const IMG_COLOR_SIZE : number = 65536;
 export const IMG_BUFFER_SIZE : number = 196608;
+
+export const DATABASE_NAME : string = 'photos.db';
