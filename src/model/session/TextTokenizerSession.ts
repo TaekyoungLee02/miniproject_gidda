@@ -1,4 +1,4 @@
-import {PAD_SIZE} from '@/src/lib/constatnts/constants'
+import {PAD_SIZE} from '@/src/lib/constants/constants'
 import {ModelType} from '@/src/lib/enums/enums'
 import * as ort from 'onnxruntime-react-native'
 import * as Loader from '@/src/model/loadModel'

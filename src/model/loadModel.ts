@@ -1,7 +1,7 @@
 import { File, Paths, Directory } from 'expo-file-system';
 import { Asset } from 'expo-asset';
 import { ModelType } from '@/src/lib/enums/enums'
-import * as Constants from '@/src/lib/constatnts/constants'
+import * as Constants from '@/src/lib/constants/constants'
 
 /** Change asset to local directory since onnxruntime-react-native requires local directory to run
  *
@@ -47,7 +47,6 @@ export async function prepareModel(modelType : ModelType)
     {
         case ModelType.Image:
             modelName = Constants.imgEncoder;
-            modelDataName = Constants.imgEncoderData;
             break;
 
         case ModelType.Text:
@@ -72,12 +71,20 @@ export async function prepareModel(modelType : ModelType)
     const model = new File(modelsDir, `${modelName}`);
     const info = model.info();
 
+    const modelData = new File(modelsDir, `${modelDataName}`);
+    const dataInfo = modelData.info();
+
     // return uri if model exists
-    if (info.exists)
+    const ready = modelDataName
+        ? info.exists && dataInfo.exists
+        : info.exists;
+
+    if (ready)
     {
         console.log(`model uri : ${model.uri}`)
         return model.uri;
     }
+
 
     // copy model if not exists
     try

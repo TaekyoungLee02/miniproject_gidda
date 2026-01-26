@@ -17,6 +17,9 @@ export abstract class ModelInferenceSession implements Model
     // model local path
     path : string;
 
+    // batch size
+    batchSize : number;
+
     // model input size
     inputSize : number[];
 
@@ -35,8 +38,9 @@ export abstract class ModelInferenceSession implements Model
     // cpu
     outputLocationName : string;
 
-    constructor(modelType : ModelType, inputSize : number[], inputType : string) {
+    constructor(modelType : ModelType, inputSize : number[], inputType : string, batchSize : number = 1) {
         this.modelType = modelType;
+        this.batchSize = batchSize;
         this.inputSize = inputSize;
         this.inputType = inputType;
         this.outputLocationName = 'cpuData';
@@ -53,21 +57,30 @@ export abstract class ModelInferenceSession implements Model
     }
 
     // get encoded vector
-    async run(data : number[])
+    async run(data : any)
     {
-        this.currentInput = new ort.Tensor(this.inputType, data, this.inputSize);
+        if (!this.session) await this.initialize();
+
+        this.currentInput = new ort.Tensor(this.inputType, data, [this.batchSize, ...this.inputSize]);
         const output = await this.session.run({[this.inputName]: this.currentInput});
         return output[this.outputName][this.outputLocationName]
     }
 
     // get encoded vector Enumerate
-    async *runEnumerate(datas : number[][])
+    async *runEnumerate(data : any[])
     {
-        for(data of datas)
+        if (!this.session) await this.initialize();
+
+        for(let d of data)
         {
-            this.currentInput = new ort.Tensor(this.inputType, data, this.inputSize);
+            this.currentInput = new ort.Tensor(this.inputType, d, [this.batchSize, ...this.inputSize]);
             const output = await this.session.run({ [this.inputName] : this.currentInput });
             yield output[this.outputName][this.outputLocationName];
         }
+    }
+
+    setBatchSize(batchSize : number)
+    {
+        this.batchSize = batchSize;
     }
 }
