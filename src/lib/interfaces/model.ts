@@ -1,4 +1,7 @@
-export interface Model<T>
+import * as ort from 'onnxruntime-react-native'
+
+export interface Model
 {
-    get_embedded_vector(input : T) : number[];
+    run(input : number[]) : Promise<ort.InferenceSession.OnnxValueMapType>;
+    runEnumerate(input : number[][]) : AsyncGenerator<ort.InferenceSession.OnnxValueMapType, void, unknown>;
 }
