@@ -111,4 +111,40 @@ export class PhotoDatabaseService
     {
 
     }
+<<<<<<< HEAD
+=======
+
+    async savePhotosToDB()
+    {
+        if (!this.label) await this.initialize();
+
+        for await (const assets of Sync.getGalleryPhotosSync())
+        {
+            const photos = assets as MediaLibrary.Asset[];
+            const photo_uris = photos.map((item) => item.uri);
+            const photo_ids = photos.map((item) => Number(item.id));
+
+
+            const vectorTask = this.vectorStore.addPhotos(photo_uris, photo_ids)
+
+            const insertTask = Database.insertPhotoAllFromAsset(photos)
+
+            try
+            {
+                const finished = await Promise.all([vectorTask, insertTask])
+            }
+
+        }
+    }
+
+    private async searchFirstFromDatabase()
+    {
+
+    }
+
+    private async searchAnotherFromDatas()
+    {
+
+    }
+>>>>>>> 7341a23 ([FIX] Bug Fixes)
 }
