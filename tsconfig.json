@@ -4,9 +4,7 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ],
+      "@/*": ["./*"],
     }
   },
   "include": [
@@ -16,28 +14,3 @@
     "expo-env.d.ts"
   ]
 }
-// ---- 타입에러 발생 시 아래 코드 사용 by 명근님 ------
-// {
-//   "extends": "expo/tsconfig.base",
-//   "compilerOptions": {
-//     "strict": false,
-//     "noImplicitAny": false,
-//     "strictNullChecks": false,
-//     "jsx": "react-native",
-//     "esModuleInterop": true,
-//     "skipLibCheck": true,
-//     "allowSyntheticDefaultImports": true,
-//     "baseUrl": ".",
-//     "paths": {
-//       "@/*": [
-//         "./*"
-//       ]
-//     }
-//   },
-//   "include": [
-//     "**/*.ts",
-//     "**/*.tsx",
-//     ".expo/types/**/*.ts",
-//     "expo-env.d.ts"
-//   ]
-// }

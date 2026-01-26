@@ -9,21 +9,19 @@ import Animated, {
     useAnimatedStyle,
     withRepeat,
     withTiming,
-    withSequence,
-    Easing,
-    interpolate
+    Easing
 } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
-const GiddaBucket = require('../assets/images/favicon2.png');
+const M_Icon = require('../assets/images/splash-icon.png');
 
 export default function WelcomePage() {
     const router = useRouter();
     const [photoCount, setPhotoCount] = useState<number>(0);
 
     // --- 애니메이션 SharedValues ---
-    const buttonScale = useSharedValue(1);
-    const shineValue = useSharedValue(-1); // 버튼 빛 번쩍임용
+    const buttonScale = useSharedValue(1); // 버튼 호흡용
+    const textOpacity = useSharedValue(1); // 텍스트 깜빡임용
 
     useEffect(() => {
         const getCount = async () => {
@@ -32,31 +30,31 @@ export default function WelcomePage() {
         };
         getCount();
 
-        // 🔘 1. 버튼 호흡 애니메이션
+        // 🔘 1. 버튼 호흡 애니메이션 (금색 없이 깔끔하게!)
         buttonScale.value = withRepeat(
-            withTiming(1.03, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1.05, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
             -1,
             true
         );
 
-        // ✨ 2. 버튼 빛 흐름 애니메이션 (반복적으로 왼쪽에서 오른쪽으로)
-        shineValue.value = withRepeat(
-            withTiming(1.5, { duration: 2500, easing: Easing.bezier(0.4, 0, 0.2, 1) }),
+        // ✨ 2. 하단 텍스트 하얀색 깜빡임 (Opacity 조절)
+        textOpacity.value = withRepeat(
+            withTiming(0.4, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
             -1,
-            false
+            true
         );
     }, []);
 
     // 버튼 호흡 스타일
     const animatedButtonStyle = useAnimatedStyle(() => ({
         transform: [{ scale: buttonScale.value }],
+        shadowOpacity: withTiming(buttonScale.value === 1 ? 0.2 : 0.4),
     }));
 
-    // 버튼 내부 빛(Shine) 이동 스타일
-    const animatedShineStyle = useAnimatedStyle(() => {
-        const translateX = interpolate(shineValue.value, [-1, 1.5], [-width * 0.7, width * 0.7]);
-        return { transform: [{ translateX }] };
-    });
+    // 텍스트 깜빡임 스타일
+    const animatedTextStyle = useAnimatedStyle(() => ({
+        opacity: textOpacity.value,
+    }));
 
     const handleStart = () => {
         router.replace('/home');
@@ -66,87 +64,98 @@ export default function WelcomePage() {
         <View style={{ flex: 1, backgroundColor: '#FFFCF5' }}>
             <StatusBar style="dark" />
 
-            {/* 🟠 상/하단 오렌지 라인 (더 선명하게 수정) */}
-            <View style={[styles.orangeLine, { top: height * 0.12, opacity: 0.8 }]} />
+            {/* 🟠 상단 오렌지 라인 (4px 두께 유지) */}
+            <View style={[styles.orangeLine, { top: height * 0.12 }]} />
 
             <View style={styles.container}>
+                {/* --- 중앙 로고 섹션 --- */}
                 <View style={styles.logoSection}>
-                    <Image source={GiddaBucket} style={styles.bucketIcon} contentFit="contain" />
+                    <Image source={M_Icon} style={styles.mIcon} contentFit="contain" />
                     <Text style={styles.giddaText}>GIDDA</Text>
-                    <Text style={styles.subText}>기억을 긷다, 추억을 잇다</Text>
                 </View>
 
-                <View style={styles.resultContainer}>
-                    <Text style={styles.normalText}>
-                        "<Text style={styles.highlightText}>{photoCount.toLocaleString()}개</Text>의 잊혀진 기억을 찾았습니다."
-                    </Text>
-                </View>
-
-                {/* 🔘 하이라이트 글로우 버튼 */}
-                <Animated.View style={[styles.buttonWrapper, animatedButtonStyle]}>
+                {/* --- 🔘 유도 애니메이션(호흡) 버튼 --- */}
+                <Animated.View style={animatedButtonStyle}>
                     <Pressable
                         onPress={handleStart}
                         style={({ pressed }) => [
                             styles.button,
-                            { backgroundColor: pressed ? '#D6751F' : '#F38A2C' }
+                            {
+                                backgroundColor: pressed ? '#D6751F' : '#F38A2C',
+                                transform: [{ scale: pressed ? 0.96 : 1 }], // 누를 때 쫀득하게
+                            }
                         ]}
                     >
-                        {/* 🌟 빛이 흐르는 레이어 */}
-                        <Animated.View style={[styles.shineLayer, animatedShineStyle]} />
-
                         <Text style={styles.buttonText}>기억 찾으러 가기</Text>
                     </Pressable>
                 </Animated.View>
+
+                {/* --- ✨ 하단 분석 결과 텍스트 (깜빡임 적용) --- */}
+                <Animated.View style={[styles.resultContainer, animatedTextStyle]}>
+                    <Text style={styles.normalText}>
+                        "<Text style={styles.highlightText}>{photoCount.toLocaleString()}개</Text>의 잊혀진 기억을 찾았습니다."
+                    </Text>
+                </Animated.View>
             </View>
 
-            <View style={[styles.orangeLine, { bottom: height * 0.12, opacity: 0.8 }]} />
+            {/* 🟠 하단 오렌지 라인 */}
+            <View style={[styles.orangeLine, { bottom: height * 0.12 }]} />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    container: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     orangeLine: {
         position: 'absolute',
         width: '100%',
-        height: 2.5,
+        height: 3,
         backgroundColor: '#F38A2C',
     },
-    logoSection: { alignItems: 'center', marginBottom: 50 },
-    bucketIcon: { width: 150, height: 110, marginBottom: 10 },
-    giddaText: { fontFamily: 'Montserrat-Regular', fontSize: 56, color: '#F38A2C', letterSpacing: 4 },
-    subText: { fontFamily: 'Pretendard-Regular', fontSize: 16, color: '#999', marginTop: 5 },
-    resultContainer: {
-        marginBottom: 60,
-        paddingVertical: 15,
-        paddingHorizontal: 30,
-        backgroundColor: 'rgba(243, 138, 44, 0.08)',
-        borderRadius: 25,
-    },
-    normalText: { fontFamily: 'Pretendard-Regular', fontSize: 19, color: '#333', textAlign: 'center' },
-    highlightText: { fontFamily: 'Pretendard-Bold', color: '#F38A2C', fontSize: 22 },
-    buttonWrapper: { width: width * 0.75 },
-    button: {
-        height: 65,
-        borderRadius: 20,
+    logoSection: {
         alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden', // 빛 레이어 잘림 방지
+        marginBottom: 80,
+    },
+    mIcon: {
+        width: 100,
+        height: 100,
+        marginBottom: 15,
+    },
+    giddaText: {
+        fontFamily: 'Montserrat-Regular',
+        fontSize: 64,
+        color: '#F38A2C',
+        letterSpacing: 3.2,
+    },
+    button: {
+        paddingVertical: 18,
+        paddingHorizontal: 25,
+        borderRadius: 20,
         shadowColor: "#F38A2C",
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.4, // 그림자 더 선명하게
+        shadowOpacity: 0.3,
         shadowRadius: 15,
-        elevation: 10,
+        elevation: 8,
     },
-    buttonText: { fontFamily: 'Pretendard-Bold', color: 'white', fontSize: 20, zIndex: 2 },
-    shineLayer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '50%',
-        height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        transform: [{ skewX: '-25deg' }], // 사선으로 흐르게
-        zIndex: 1,
+    buttonText: {
+        fontFamily: 'Pretendard-Bold',
+        color: 'white',
+        fontSize: 22,
+    },
+    resultContainer: {
+        marginTop: 100,
+    },
+    normalText: {
+        fontFamily: 'Pretendard-Regular',
+        fontSize: 18,
+        color: '#333',
+    },
+    highlightText: {
+        fontFamily: 'Pretendard-Bold',
+        color: '#F38A2C',
     },
 });
