@@ -9,4 +9,5 @@ export interface SearchAnalysisResult {
   weights: {             // Enum 기준 가중치
     [key in SearchType]?: number; 
   };
+  reason: string;
 }
