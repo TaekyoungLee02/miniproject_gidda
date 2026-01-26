@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
-import { VectorStore } from "@langchain/core/vectorstores"
-import { ImageEmbeddings, TextEmbeddings } from "@/src/db/langchain/embedding"
-import { Photo } from "@/src/lib/types/photo"
+import {VectorStore} from "@langchain/core/vectorstores"
+import {ImageEncoder, TextEncoder} from "@/src/model/Model"
+import {Photo} from "@/src/lib/types/photo"
 import * as Database from "@/src/db/database"
 
 export class CLIPSQLiteVecStore extends VectorStore
@@ -9,20 +9,19 @@ export class CLIPSQLiteVecStore extends VectorStore
     db : SQLite.SQLiteDatabase;
     tableName : string;
 
-    imageEmbeddings : ImageEmbeddings;
-    textEmbeddings : TextEmbeddings;
+    imageEncoder : ImageEncoder;
+    textEncoder : TextEncoder;
 
     /**
      * constructor. add vector store to db
      *
-     * @param embeddings embeddings encoder
      * @param database db file
      * @param tableName default : photo_vec
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
-        this.imageEmbeddings = new ImageEmbeddings();
-        this.textEmbeddings = new TextEmbeddings();
+        this.imageEncoder = ImageEncoder.getInstance();
+        this.textEncoder = TextEncoder.getInstance();
         this.db = SQLite.openDatabaseSync(database);
         this.tableName = tableName;
 
@@ -71,8 +70,9 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async addPhotos(imageURIs: string[], rowIds : number[], options?: AddDocumentOptions)
     {
-        const vectors = await this.imageEmbeddings.embedDocuments(imageURIs);
+        const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
         await this.addVectors(vectors, rowIds);
+        return vectors;
     }
 
     async delete(rowIDs: number[])
@@ -88,7 +88,7 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number): Promise<[Photo, number][]>
     {
-        const statement = await this.db.prepareSync(`
+        const statement = this.db.prepareSync(`
                 SELECT 
                     rowid, 
                     distance 
@@ -102,26 +102,23 @@ export class CLIPSQLiteVecStore extends VectorStore
         {
             const queryVector = new Float32Array(query);
             if (!k) k = 100;
-            const rows = await statement
+            const rows = statement
                 .executeSync([queryVector, k, threshold])
                 .getAllSync();
 
-            const placeholders = rowIds.map(() => "?").join(",");
-            const photos = await this.db
+            const placeholders = rows.map(() => "?").join(",");
+            const photos = this.db
                 .getAllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
-            `, rowIds);
+            `, rows.map((row : any) => row.rowid));
             const photoMap = new Map(photos.map(p => [p.id, p]));
 
-            Database.saveSearchHistory(query);
-
-            const photoWithScores : [Photo, number][] = rows.map((row) => [
+            return rows.map((row: any) => [
                 photoMap.get(row.rowid),
                 1 - row.distance
             ]);
-            return photoWithScores;
         }
         finally
         {
@@ -131,7 +128,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async similaritySearch(query: string, threshold : number, k?: number): Promise<[Photo, number][]>
     {
-        const queryVec = await this.textEmbeddings.embedQuery(query);
+        const queryVec = await this.textEncoder.run(query) as Float32Array;
+        Database.saveSearchHistory(query);
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
 }
