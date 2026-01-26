@@ -6,6 +6,8 @@ import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
 import { DATABASE_NAME } from "@/src/lib/constants"
 import { Photo } from "@/src/lib/types/photo"
 import {insertPhotoAllFromAsset} from "../db/database";
+import { LabelLoader } from "@/src/db/labelLoader";
+import {getGalleryPhotosSync} from "@/src/db/syncService";
 
 class PhotoDatabaseService
 {
@@ -15,7 +17,7 @@ class PhotoDatabaseService
 
 
     constructor() {
-        this.vectorStore = new CLIPSQLiteVecStore();
+        this.vectorStore = new CLIPSQLiteVecStore('photo.db');
         Sync.registerPhotoLibraryListener(() => this.savePhotosToDB());
     }
 
@@ -26,12 +28,14 @@ class PhotoDatabaseService
 
     async initialize()
     {
-
+        this.label = await LabelLoader.getDB();
     }
 
     async savePhotosToDB()
     {
-        for(const assets of Sync.syncGalleryToDB())
+        if (!this.label) await this.initialize();
+
+        for await (const assets of Sync.getGalleryPhotosSync())
         {
             const photos = assets as MediaLibrary.Asset[];
             const photo_uris = photos.map((item) => item.uri);

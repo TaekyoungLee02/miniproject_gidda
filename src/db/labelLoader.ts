@@ -2,7 +2,7 @@ import { File, Directory, Paths } from 'expo-file-system'
 import { Asset } from 'expo-asset'
 import * as SQLite from 'expo-sqlite';
 
-class LabelLoader
+export class LabelLoader
 {
     private static dbFile : File;
     private static dbAsset : Asset;
