@@ -37,10 +37,32 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
         [SearchType.Context]: parsed.weights?.["0"] || 0,
         [SearchType.Time]: parsed.weights?.["1"] || 0,
         [SearchType.Space]: parsed.weights?.["2"] || 0,
-      }
+      },
+      reason: parsed.reason
     };
-  } catch (error) {
-    console.error("❌ Azure GPT 분석 실패:", error);
+  } catch (error: any) {
+    // 1️⃣ 400 에러: 보안 필터 (오늘 지연 님을 괴롭힌 녀석)
+    if (error.status === 400 && error.code === 'content_filter') {
+      return {
+        suitability: false,
+        entities: { [SearchType.Context]: [], [SearchType.Time]: [], [SearchType.Space]: [] },
+        weights: { [SearchType.Context]: 0, [SearchType.Time]: 0, [SearchType.Space]: 0 },
+        reason: "보안 정책에 의해 검색이 차단되었습니다."
+      };
+    }
+
+    // 2️⃣ 429 에러: 요청 횟수 초과 (사용자가 너무 빠르게 연타할 때)
+    if (error.status === 429) {
+      return {
+        suitability: false,
+        entities: { [SearchType.Context]: [], [SearchType.Time]: [], [SearchType.Space]: [] },
+        weights: { [SearchType.Context]: 0, [SearchType.Time]: 0, [SearchType.Space]: 0 },
+        reason: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+      };
+    }
+
+    // 그 외 (네트워크 끊김 등)
+    console.error("❌ 예측하지 못한 에러 발생:", error);
     return null;
   }
 };
