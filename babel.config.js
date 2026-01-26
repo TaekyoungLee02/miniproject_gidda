@@ -10,7 +10,7 @@ module.exports = function (api) {
         },
       }],
       'nativewind/babel',
-
+ 
       // ⚠️ 반드시 마지막
       'react-native-reanimated/plugin',
     ],

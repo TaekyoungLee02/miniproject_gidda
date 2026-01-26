@@ -42,7 +42,7 @@ export const getGalleryPhotosSync = async function* () {
     } as any;
 
     let hasNextPage = true;
-    let totalSaved = 0;
+    let totalProcessed = 0;
     // 이번 동기화에서 가장 최신 사진의 시간을 기록할 변수
     let maxTimestamp = lastTime; 
 
@@ -60,28 +60,59 @@ export const getGalleryPhotosSync = async function* () {
         break;
       }
 
-      console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
+      const batch = assets.assets;
 
-      yield assets.assets as MediaLibrary.Asset[];
-      
+      // DB 저장 (동기 작업)
+        for (const photo of batch) {
+            await insertPhoto({
+                id: photo.id,
+                local_uri: photo.uri,
+                captured_at: photo.creationTime,
+                width: photo.width,
+                height: photo.height,
+                // 🟡 [선택] 나머지 필수/Nullable 필드들도 명시적으로 초기화해주는 게 안전함
+                latitude: null,  // 아직 모르니까 null
+                longitude: null, // 아직 모르니까 null
+                address: null,   // 아직 모르니까 null
+                ai_tags: null,   // 아직 분석 전이니까 null
+            });
 
-      hasNextPage = assets.hasNextPage;
-      if (hasNextPage) {
+            if (photo.creationTime > maxTimestamp) {
+                maxTimestamp = photo.creationTime;
+            }
+        }
+
+        totalProcessed += batch.length;
+        console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
+
+        yield assets.assets as MediaLibrary.Asset[];
+
+        // UI에 진행 상황 보고
+        yield { batch, totalProcessed, totalCount: assets.totalCount };
+
+        hasNextPage = assets.hasNextPage;
+        if (hasNextPage) {
         // 페이징은 여전히 cursor를 사용 (createdAfter가 필터링해준 목록 내에서의 페이징)
         assetsOptions.after = assets.endCursor;
       }
+
+      // 5. 시간 갱신 (저장된 게 있을 때만)
+      if (totalProcessed > 0) {
+        await AsyncStorage.setItem(LAST_SYNC_TIME_KEY, (maxTimestamp + 1).toString());
+      }
     }
 
+  
     // 3.  가장 최신 사진의 시간을 저장 (다음엔 이 시간이후부터 검색)
     // 단, 사진을 한 장이라도 저장했을 때만 갱신
-    if (totalSaved > 0) {
+    if (totalProcessed > 0) {
         // 중복 방지를 위해 1ms 더함
       await AsyncStorage.setItem(LAST_SYNC_TIME_KEY, (maxTimestamp + 1).toString());
       console.log(`✅ [Sync] 기준 시간 업데이트 완료: ${new Date(maxTimestamp).toLocaleString()}`);
     }
 
-    console.log(`✅ [Sync] 총 ${totalSaved}장 저장 완료.`);
-    return totalSaved;
+    console.log(`✅ [Sync] 총 ${totalProcessed}장 저장 완료.`);
+    return totalProcessed;
 
   } catch (error) {
     console.error('❌ [Sync] 에러:', error);

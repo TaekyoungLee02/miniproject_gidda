@@ -67,65 +67,45 @@ export default function IndexingPage() {
         const totalCount = totalAssets.totalCount;
         let processedCount = 0;
 
+        // 🚨 [추가] 사진이 하나도 없으면 바로 Welcome으로 토스!
+        if (totalCount === 0) {
+            await AsyncStorage.setItem('indexed_count', '0');
+            await AsyncStorage.setItem('is_setup_complete', 'true');
+            router.replace('/welcome');
+            return; // 여기서 함수 종료
+        }
+
         // 서비스 호출
-        const album = await MediaLibrary.getAssetsAsync({ 
-            mediaType: 'photo',
-            first: 50, sortBy: ['creationTime']});
-
-            const photos = album.assets;
-            const total = photos.length;
+        // syncService가 50장 처리할 때마다 여기로 'yield' 해줌
+        const syncGenerator = getGalleryPhotosSync();
             
-        if (total > 0) {
-            setCurrentPhoto(photos[0].uri);
-
-            // 배경 슬라이드쇼 시작
-            const slideInterval = setInterval(() => {
-                slideIndex.current = (slideIndex.current + 1) % album.assets.length;
-                setCurrentPhoto(album.assets[slideIndex.current].uri);
-            }, 600); // 사진 전환 속도 
-
-            // [수정] 실제 DB 저장 루프 시작
-            for (let i = 0; i < total; i++) {
-                const photo = photos[i];
-
-                // ⚡ 핵심: DB 저장 함수 호출
-                // (네가 정의한 insertPhoto 함수에 맞춰 데이터 전달)
-                await insertPhoto({
-                    id: photo.id,
-                    uri: photo.uri,
-                    creationTime: photo.creationTime,
-                    width: photo.width,
-                    height: photo.height,
-                    // 필요한 경우 추가 메타데이터 전달
-                });
-
+        for await (const batch of syncGenerator) {
+            // 배치(50장) 단위로 화면 갱신
+            if (batch && batch.length > 0) {
+                // 배경 사진 바꾸기
+                setCurrentPhoto(batch[0].uri);
+                
+                processedCount += batch.length;
+                
                 // 진행률 계산
-                const percent = Math.floor(((i + 1) / total) * 100);
+                const percent = Math.min(Math.floor((processedCount / totalCount) * 100), 100);
                 setProgress(percent);
 
-                // 상태 텍스트 업데이트
-                if (percent === 30) setStatusText('#여행의_기록_스캔중');
-                if (percent === 60) setStatusText('#맛있는_음식_담는중');
-                if (percent === 90) setStatusText('#거의_다_됐어요');
-
-                // UI 스레드 과부하 방지를 위한 미세한 지연 (선택 사항)
-                if (i % 5 === 0) await new Promise(r => setTimeout(r, 10));
+                // 텍스트 업데이트
+                if (percent < 30) setStatusText('#여행의_기록_스캔중');
+                else if (percent < 60) setStatusText('#맛있는_음식_담는중');
+                else setStatusText('#거의_다_됐어요');
             }
-            // 완료 처리
-            clearInterval(slideInterval);
-
-            // Welcome 페이지 등에서 쓰기 위해 저장
-            await AsyncStorage.setItem('indexed_count', total.toString());
-            await AsyncStorage.setItem('is_setup_complete', 'true');
-
-            // 잠시 후 이동
-            setTimeout(() => {
-                router.replace('/welcome');
-            }, 500);
-        } else {
-            // 사진이 없을 경우 바로 이동
-            router.replace('/welcome');
         }
+        // 완료 처리
+        // Welcome 페이지 등에서 쓰기 위해 저장
+        await AsyncStorage.setItem('indexed_count', processedCount.toString());
+        await AsyncStorage.setItem('is_setup_complete', 'true');
+
+        setTimeout(() => {
+            router.replace('/welcome');
+        }, 500);
+        
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({

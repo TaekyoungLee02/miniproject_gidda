@@ -1,6 +1,6 @@
 // src/services/database.ts
 import * as SQLite from 'expo-sqlite';
-import { Photo } from '../types';
+import { Photo } from '../lib/types/photo';
 
 // 1. 최신 방식: 동기식(Sync) DB 열기
 const db = SQLite.openDatabaseSync('photos.db');
