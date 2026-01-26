@@ -12,14 +12,13 @@ import Animated, {
     withTiming,
     withRepeat,
     withSequence,
-    withSpring,
     Easing
 } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
-// ✅ 합체된 아이콘 사용 (좌우 조각 대신 splash-icon 사용을 권장합니다)
-const M_Icon = require('../assets/images/splash-icon.png');
+// ✅ 새 양동이 로고 사용
+const GiddaBucket = require('../assets/images/favicon2.png');
 
 export default function IndexingPage() {
     const router = useRouter();
@@ -28,28 +27,25 @@ export default function IndexingPage() {
     const [statusText, setStatusText] = useState('#추억_저장소_여는_중');
     const slideIndex = useRef(0);
 
-    // --- 🧩 M자 바운스 애니메이션용 SharedValues ---
-    const mScale = useSharedValue(1);
-    const mTranslateY = useSharedValue(0);
+    // --- 🧩 애니메이션 SharedValues (행동 반경 축소) ---
+    const logoScale = useSharedValue(1);
+    const logoTranslateY = useSharedValue(0);
 
     useEffect(() => {
         startProcess();
 
-        // 1️⃣ M자가 위아래로 통통 튀면서 커졌다 작아지는 효과
-        mTranslateY.value = withRepeat(
+        // 1️⃣ 양동이 애니메이션
+        logoTranslateY.value = withRepeat(
             withSequence(
-                withTiming(-15, { duration: 600, easing: Easing.out(Easing.quad) }),
-                withSpring(0, { damping: 4, stiffness: 100 })
+                withTiming(-8, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+                withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) })
             ),
             -1,
-            false
+            true
         );
 
-        mScale.value = withRepeat(
-            withSequence(
-                withTiming(1.1, { duration: 600 }),
-                withTiming(1, { duration: 600 })
-            ),
+        logoScale.value = withRepeat(
+            withTiming(1.03, { duration: 2000 }),
             -1,
             true
         );
@@ -65,7 +61,7 @@ export default function IndexingPage() {
             const slideInterval = setInterval(() => {
                 slideIndex.current = (slideIndex.current + 1) % album.assets.length;
                 setCurrentPhoto(album.assets[slideIndex.current].uri);
-            }, 500);
+            }, 600); // 사진 전환 속도 
 
             for (let i = 0; i <= 100; i++) {
                 setProgress(i);
@@ -79,42 +75,48 @@ export default function IndexingPage() {
         }
     };
 
-    const mAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: mTranslateY.value }, { scale: mScale.value }]
+    const logoAnimatedStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value }]
     }));
 
     return (
         <View style={{ flex: 1, backgroundColor: '#FFFCF5' }}>
             <StatusBar style="dark" />
 
-            {/* 📸 1. 중앙 사진 슬라이드 영역 (프레임 위아래 여백 최소화) */}
+            {/* 📸 1. 상단 사진 슬라이드 영역 (양동이 위쪽 배치) */}
             <View style={styles.photoFrame}>
                 <View style={styles.orangeLine} />
                 <View style={{ flex: 1, backgroundColor: '#000' }}>
                     {currentPhoto && (
-                        <Animated.View key={currentPhoto} entering={FadeIn.duration(300)} style={{ flex: 1 }}>
-                            <Image source={{ uri: currentPhoto }} style={{ width: '100%', height: '100%', opacity: 0.9 }} contentFit="cover" />
+                        <Animated.View key={currentPhoto} entering={FadeIn.duration(400)} style={{ flex: 1 }}>
+                            <Image source={{ uri: currentPhoto }} style={styles.bgImage} contentFit="cover" />
                         </Animated.View>
                     )}
                 </View>
                 <View style={styles.orangeLine} />
             </View>
 
-            {/* 📊 2. 글래스모피즘 박스 UI */}
-            <View style={styles.overlay} pointerEvents="none">
-                <View style={styles.glassBox}>
-                    <Animated.View style={mAnimatedStyle}>
-                        <Image source={M_Icon} style={styles.mIcon} contentFit="contain" />
-                    </Animated.View>
+            {/* 📊 2. 중앙 로딩 정보 (네모 박스 제거) */}
+            <View style={styles.centerContent} pointerEvents="none">
+                <Animated.View style={[styles.bucketWrapper, logoAnimatedStyle]}>
+                    <Image source={GiddaBucket} style={styles.bucketIcon} contentFit="contain" />
+                </Animated.View>
 
+                <View style={styles.infoArea}>
                     <Text style={styles.hashtag}>{statusText}</Text>
+
+                    {/* ✅ 로딩바 추가 */}
+                    <View style={styles.progressBarContainer}>
+                        <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                    </View>
+
                     <Text style={styles.progressText}>{progress}%</Text>
                 </View>
             </View>
 
             {/* 🏷️ 3. 최하단 안내 문구 */}
             <SafeAreaView style={styles.footer}>
-                <Text style={styles.footerText}>앱을 종료하지 마세요.</Text>
+                <Text style={styles.footerText}>AI가 당신의 소중한 어제를 긷고 있습니다.</Text>
             </SafeAreaView>
         </View>
     );
@@ -123,59 +125,72 @@ export default function IndexingPage() {
 const styles = StyleSheet.create({
     photoFrame: {
         position: 'absolute',
-        // ✅ 피그마 요청대로 위아래 여백을 대폭 줄여 사진 노출 극대화
-        top: height * 0.1,
-        height: height * 0.75,
+        top: height * 0.12,
+        height: height * 0.35, // 사진 영역 축소로 로고와 분리
         width: '100%',
+    },
+    bgImage: {
+        width: '100%',
+        height: '100%',
+        opacity: 0.8,
     },
     orangeLine: {
         width: '100%',
-        height: 4,
+        height: 2,
         backgroundColor: '#F38A2C',
+        opacity: 0.5,
     },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
+    centerContent: {
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        marginTop: height * 0.2, // 로고 위치 하향 조정
     },
-    glassBox: {
-        backgroundColor: 'rgba(255, 252, 245, 0.96)',
-        width: 190,
-        height: 190,
-        borderRadius: 40,
+    bucketWrapper: {
+        marginBottom: 25,
+    },
+    bucketIcon: {
+        width: 200,
+        height: 100,
+    },
+    infoArea: {
         alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: "#F38A2C",
-        shadowOffset: { width: 0, height: 15 },
-        shadowOpacity: 0.15,
-        shadowRadius: 25,
-    },
-    mIcon: {
-        width: 85, // 아이콘 크기 확대
-        height: 85,
+        width: '100%',
     },
     hashtag: {
         fontFamily: 'Pretendard-Bold',
         fontSize: 18,
         color: '#F38A2C',
-        marginTop: 15,
+        marginBottom: 15,
+    },
+    progressBarContainer: {
+        width: width * 0.6,
+        height: 8,
+        backgroundColor: '#EEE',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 10,
+    },
+    progressBarFill: {
+        height: '100%',
+        backgroundColor: '#F38A2C',
     },
     progressText: {
         fontFamily: 'Montserrat-Regular',
-        fontSize: 28,
-        fontWeight: '800',
+        fontSize: 24,
+        fontWeight: '700',
         color: '#F38A2C',
-        marginTop: 5,
     },
     footer: {
         position: 'absolute',
-        bottom: 40,
+        bottom: 50,
         width: '100%',
         alignItems: 'center',
     },
     footerText: {
         fontFamily: 'Pretendard-Regular',
         fontSize: 14,
-        color: '#BBB',
+        color: '#F38A2C',
+        opacity: 0.8,
     }
 });

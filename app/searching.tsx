@@ -74,7 +74,8 @@ export default function SearchingPage() {
 
             setTimeout(() => {
                 clearInterval(shuffleInterval);
-                router.replace({ pathname: '/save-page', params: { prompt: userPrompt, tags: existingTags } });
+                router.replace({ pathname: '/save-page-ui', params: { prompt: userPrompt, tags: existingTags } });
+
             }, 5000);
         }
     };
