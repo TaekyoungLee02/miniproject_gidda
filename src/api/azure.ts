@@ -24,6 +24,10 @@ export const tagAddress = async (photos: Photo[]) =>
             // DB에는 "sea, sky, rock" 처럼 저장되어 있을 수 있음.
             const detectedTags = photos[i].ai_tags;
 
+            console.log(``, dateStr)
+            console.log(``, locationHint)
+            console.log(``, detectedTags)
+
             const userPrompt = `
                   나는 사진의 위치를 찾고 있어. 아래 정보를 단서로 여기가 어디인지 추리해줘.
                  
@@ -34,7 +38,6 @@ export const tagAddress = async (photos: Photo[]) =>
                  
                   [요청사항]
                   - 위 태그들을 조합했을 때 한국(또는 사용자가 자주 가는 해외 여행지) 내에서 가장 유력한 '구체적인 장소명' 하나만 말해줘.
-                  - 만약 도저히 모르겠으면 'unknown'라고만 답해.
                   - 그 장소의 대표적인 위도(latitude)와 경도(longitude) 좌표를 추정해.
                   - 답변은 모두 영어 소문자로만 구성해.
                   - **반드시 아래 JSON 포맷으로만 답변해.** (다른 말 금지)
@@ -62,6 +65,8 @@ export const tagAddress = async (photos: Photo[]) =>
             // ✅ [변경점 4] Axios를 사용하여 Proxy로 POST 요청
             // (api-key 헤더 제거됨 -> 서버가 처리함)
             const response = await axios.post(PROXY_URL, payload);
+
+            console.log(`response${JSON.stringify(response.data)}`);
 
             if (response.status !== 200) {
                 console.error('❌ [Azure] API 호출 오류:', response.data);
@@ -102,4 +107,3 @@ export const tagAddress = async (photos: Photo[]) =>
         }
     }
 }
-

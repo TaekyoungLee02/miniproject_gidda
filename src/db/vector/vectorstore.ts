@@ -38,7 +38,12 @@ export class CLIPSQLiteVecStore extends VectorStore
         console.log("db:", this.db);
         console.log("extension:", extension);
 
+
         await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
+
+        this.db.execSync(`
+            DROP TABLE IF EXISTS photo_vec;
+        `);
         this.db.execSync(`
             CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512]
@@ -51,9 +56,18 @@ export class CLIPSQLiteVecStore extends VectorStore
         return "sqlite-vec";
     }
 
-    async addVectors(vectors: Float32Array[], rowIds : number[], options?: AddDocumentOptions)
+    async addVectors(vectors: number[], rowIds : number[], options?: AddDocumentOptions)
     {
         if (!this.db) await this.initialize();
+
+        const chunked: any[] = [];
+        let index = 0;
+        let size = 512;
+
+        while (index < vectors.length) {
+            chunked.push(vectors.slice(index, index + size));
+            index += size;
+        }
 
         this.db.withTransactionSync(() =>
         {
@@ -61,34 +75,30 @@ export class CLIPSQLiteVecStore extends VectorStore
                     INSERT OR REPLACE INTO ${this.tableName}(rowid, embedding) VALUES (?, ?)
                 `);
 
-            try
+            for (let i = 0; i < chunked.length; i ++)
             {
-                for (let i = 0; i < vectors.length; i ++)
+                try
                 {
-                    const vector = vectors[i];
                     const rowId = rowIds[i];
+                    const vector = JSON.stringify(Array.from(chunked[i]));
+
+                    console.log(`1 : ${rowId} 2 : ${vector.length} i : ${i}`)
 
                     statement.executeSync([rowId, vector]);
                 }
+                catch (e) {}
             }
-            catch (e)
-            {
-                console.error(`vector store addVectors error occurred : ${e.message}`);
-
-                throw e;
-            }
-            finally
-            {
-                statement.finalizeSync();
-            }
+            statement.finalizeSync();
         });
+
+        return chunked;
     }
 
     async addPhotos(imageURIs: string[], rowIds : number[], options?: AddDocumentOptions)
     {
         const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
-        await this.addVectors(vectors, rowIds);
-        return vectors;
+        const chunked = await this.addVectors(vectors, rowIds);
+        return chunked;
     }
 
     async delete(rowIDs: number[])

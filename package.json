@@ -38,6 +38,7 @@
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
+    "firebase": "^12.8.0",
     "jpeg-js": "^0.4.4",
     "langchain": "^1.2.13",
     "lucide-react-native": "^0.562.0",

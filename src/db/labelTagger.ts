@@ -27,13 +27,16 @@ export class LabelTagger
         if (!this.db)
         {
             this.db = await SQLite.openDatabaseAsync('labels.db');
+            const extension = SQLite.bundledExtensions['sqlite-vec'];
+            await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
         }
         return this.db;
     }
 
-    static async getTags(imageVectors : Float32Array[])
+    static async getTags(imageVectors : number[][])
     {
         const tags : string[][] = [];
+        await this.getDB();
 
         this.db.withTransactionSync(() =>
         {
@@ -42,7 +45,7 @@ export class LabelTagger
                     rowid
                 FROM vec_labels
                 WHERE embedding MATCH ? 
-                    AND distance < ?
+                    AND k = 10
             `);
 
             try
@@ -50,16 +53,22 @@ export class LabelTagger
                 for (const vector of imageVectors)
                 {
                     const rows = statement
-                        .executeSync([vector, THRESHOLD_LABEL])
+                        .executeSync([JSON.stringify(Array.from(vector))])
                         .getAllSync();
 
+
                     const placeholders = rows.map(() => "?").join(",");
-                    const labels = this.db
+                    const ids = rows.map((row) => row.rowid);
+                    const results = this.db
                         .getAllSync<string>(`
                         SELECT label 
                         FROM labels
                         WHERE id IN (${placeholders})
-                    `, [rows]);
+                    `, ids);
+
+                    const labels = results.map((result) => result.label)
+
+                    console.log(``, labels)
 
                     tags.push(labels)
                 }
@@ -68,10 +77,6 @@ export class LabelTagger
             {
                 console.error(`${e}`)
                 throw e;
-            }
-            finally
-            {
-                statement.finalizeSync();
             }
         });
 

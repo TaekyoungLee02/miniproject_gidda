@@ -1,8 +1,10 @@
-import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT, PROXY_URL } from '@/src/lib/constants/constants';
+import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from '@/src/lib/constants/constants';
 import { SearchAnalysisResult } from '@/src/lib/types/analysis';
 import { SearchType } from '../lib/enums/enums';
 import axios from "axios";
 
+// 1. Firebase Proxy 서버 주소 (환경변수에서 가져오기)
+const PROXY_URL = process.env.EXPO_PUBLIC_API_URL || "";
 
 export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisResult | null> => {
   try {
@@ -10,7 +12,8 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     const now = new Date();
     const currentDateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${['일','월','화','수','목','금','토'][now.getDay()]}요일`;
 
-    const payload = {
+    // 2. client.chat... 대신 axios.post 사용
+    const response = await axios.post(PROXY_URL, {
       messages: [
         {
           role: 'system',
@@ -23,7 +26,7 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
       ],
       response_format: { type: "json_object" },
       temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
-    };
+    });
 
     // const response = await client.chat.completions.create({
     //   model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
@@ -35,16 +38,10 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     //   temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
     // });
 
-    const response = await axios.post(PROXY_URL, payload);
-
-    if (response.status !== 200) {
-      console.error('❌ [Azure] API 호출 오류:', response.data);
-      throw new Error(`Azure API Error: ${response.status}`);
-    }
-
-    // Axios는 response.data가 이미 JSON 객체임
+    // 3. Axios는 결과를 response.data에 담아줍니다.
     const data = response.data;
-    const result = data.choices[0].message.content;
+    const result = data.choices?.[0]?.message?.content;
+
     if (!result) return null;
 
     const parsed = JSON.parse(result);
@@ -98,8 +95,8 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
  */
 export const generateAlbumTitles = async (photoData: string): Promise<string[]> => {
   try {
-    const response = await client.chat.completions.create({
-      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    // 여기도 axios.post로 교체
+    const response = await axios.post(PROXY_URL, {
       messages: [
         { role: "system", content: ALBUM_TITLE_PROMPT },
         { role: "user", content: `다음 사진들에 어울리는 제목을 지어줘:\n${photoData}` }
@@ -107,12 +104,13 @@ export const generateAlbumTitles = async (photoData: string): Promise<string[]> 
       response_format: { type: "json_object" },
       temperature: 0.8, // 창의적인 제목을 위해 온도를 조금 높입니다!
     });
+    const data = response.data;
+    const result = data.choices?.[0]?.message?.content;
 
-    const result = response.choices[0].message.content;
     if (!result) return ["새 앨범"];
 
     const parsed = JSON.parse(result);
-    return parsed.titles; // ["여름날의 추억", "제주 바다 나들이", "푸른 조각들"]
+    return parsed.titles;
   } catch (error) {
     console.error("❌ 앨범 제목 생성 실패:", error);
     return ["나의 앨범"];

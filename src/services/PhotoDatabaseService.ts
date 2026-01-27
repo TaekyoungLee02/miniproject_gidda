@@ -59,16 +59,18 @@ export class PhotoDatabaseService
                 // get Labels from labels.db
                 .then((value) =>
                 {
+                    console.log(`store successed`, value.length)
                     return LabelTagger.getTags(value);
                 })
                 // set ai_tags to photos
                 .then(value =>
                 {
-                    const tag_joined = value.map((tags) => tags.join(','));
+                    const tag_joined = value.map((tags) => tags.join(', '));
 
                     for (const i in photos)
                     {
                         photos[i].ai_tags = tag_joined[i];
+                        console.log(`photo : `, photos[i]);
                     }
 
                     return photos;

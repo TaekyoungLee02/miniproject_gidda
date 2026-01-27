@@ -55,8 +55,11 @@ export default function IndexingPage() {
     const startProcess = async () => {
 
         const { status } = await MediaLibrary.requestPermissionsAsync();
+
         if (status !== 'granted') { router.replace('/'); return; }
         const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
+
+        console.log(``, album)
 
         const service = PhotoDatabaseService.getInstance();
 
