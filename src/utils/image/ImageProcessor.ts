@@ -12,6 +12,7 @@ export class ImageProcessorService {
   async processForMobileClip(uri: string) {
     try {
 
+      console.log(``, uri)
       // resize image with 256 * 256
       const result = await ImageManipulator.manipulateAsync(
         uri,

@@ -42,7 +42,7 @@
       ],
       "expo-asset",
       "onnxruntime-react-native",
-      "expo-sqlite",
+      ["expo-sqlite", { "withSQLiteVecExtension": true }],
       "expo-asset"
     ],
     "experiments": {

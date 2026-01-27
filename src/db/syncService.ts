@@ -3,16 +3,16 @@
 
 import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { insertPhoto } from './database';
-import { Photo } from '../types';
 
 // 키 값 변경 (ID -> Time)
 const LAST_SYNC_TIME_KEY = 'last_synced_timestamp';
 let isSyncing = false;
-export const syncGalleryToDB = (): AsyncGenerator<MediaLibrary.Asset, void, unknown> => {
+export let gallery_photos_amount : number = 1;
+
+export const getGalleryPhotosSync = async function* () {
   if (isSyncing) {
     console.log('🚫 [Sync] 중복 실행 방지됨.');
-    return 0;
+    return null;
   }
 
   try {
@@ -54,6 +54,7 @@ export const syncGalleryToDB = (): AsyncGenerator<MediaLibrary.Asset, void, unkn
 
     while (hasNextPage) {
       const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
+      gallery_photos_amount = assets.totalCount;
       
       if (assets.totalCount === 0 || assets.assets.length === 0) {
         break;
@@ -119,9 +120,9 @@ export const syncGalleryToDB = (): AsyncGenerator<MediaLibrary.Asset, void, unkn
   }
 };
 
-export const registerPhotoLibraryListener = () => {
+export const registerPhotoLibraryListener = (callback: () => void) => {
   return MediaLibrary.addListener(() => {
     console.log('🔔 [Listener] 새 사진 감지!');
-    syncGalleryToDB();
+    callback();
   });
 };

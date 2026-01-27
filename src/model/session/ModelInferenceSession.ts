@@ -61,6 +61,19 @@ export abstract class ModelInferenceSession implements Model
     {
         if (!this.session) await this.initialize();
 
+        this.currentInput = new ort.Tensor(this.inputType, data, [1, ...this.inputSize]);
+        const output = await this.session.run({[this.inputName]: this.currentInput});
+        return output[this.outputName][this.outputLocationName]
+    }
+
+    // get encoded vector as array
+    async runAll(data : any, batchSize? : number)
+    {
+        if (!this.session) await this.initialize();
+        if (batchSize) this.batchSize = batchSize;
+
+        console.log(``, [this.batchSize, ...this.inputSize])
+
         this.currentInput = new ort.Tensor(this.inputType, data, [this.batchSize, ...this.inputSize]);
         const output = await this.session.run({[this.inputName]: this.currentInput});
         return output[this.outputName][this.outputLocationName]
@@ -73,7 +86,7 @@ export abstract class ModelInferenceSession implements Model
 
         for(let d of data)
         {
-            this.currentInput = new ort.Tensor(this.inputType, d, [this.batchSize, ...this.inputSize]);
+            this.currentInput = new ort.Tensor(this.inputType, d, [1, ...this.inputSize]);
             const output = await this.session.run({ [this.inputName] : this.currentInput });
             yield output[this.outputName][this.outputLocationName];
         }

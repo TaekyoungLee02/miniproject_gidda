@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
@@ -37,11 +38,14 @@
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
+    "firebase": "^12.8.0",
     "jpeg-js": "^0.4.4",
     "langchain": "^1.2.13",
     "lucide-react-native": "^0.562.0",
     "nativewind": "^2.0.11",
     "onnxruntime-react-native": "^1.23.2",
+    "openai": "^6.16.0",
+    "papaparse": "^5.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -53,13 +57,16 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
+    "sqlite-vec": "^0.1.7-alpha.2",
     "tailwindcss": "^3.3.2"
   },
   "devDependencies": {
+    "@types/papaparse": "^5.5.2",
     "@types/react": "~19.1.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "expo-module-scripts": "^5.0.8",
     "typescript": "~5.9.2"
   },
   "private": true

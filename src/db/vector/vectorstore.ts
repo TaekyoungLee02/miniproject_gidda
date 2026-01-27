@@ -1,33 +1,51 @@
 import * as SQLite from 'expo-sqlite';
-import { VectorStore } from "@langchain/core/vectorstores"
-import { ImageEmbeddings, TextEmbeddings } from "@/src/db/langchain/embedding"
-import { Photo } from "@/src/lib/types/photo"
+import {VectorStore} from "@langchain/core/vectorstores"
+import {ImageEncoder, TextEncoder} from "@/src/model/Model"
+import {Photo} from "@/src/lib/types/photo"
 import * as Database from "@/src/db/database"
 
 export class CLIPSQLiteVecStore extends VectorStore
 {
     db : SQLite.SQLiteDatabase;
     tableName : string;
+    dbName : string;
 
-    imageEmbeddings : ImageEmbeddings;
-    textEmbeddings : TextEmbeddings;
+    imageEncoder : ImageEncoder;
+    textEncoder : TextEncoder;
 
     /**
      * constructor. add vector store to db
      *
-     * @param embeddings embeddings encoder
      * @param database db file
      * @param tableName default : photo_vec
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
-        this.imageEmbeddings = new ImageEmbeddings();
-        this.textEmbeddings = new TextEmbeddings();
-        this.db = SQLite.openDatabaseSync(database);
+        this.dbName = database;
+        this.imageEncoder = ImageEncoder.getInstance();
+        this.textEncoder = TextEncoder.getInstance();
         this.tableName = tableName;
+    }
 
+    async initialize()
+    {
+        this.db = SQLite.openDatabaseSync(this.dbName);
+
+        console.log(``, SQLite.bundledExtensions)
+
+        const extension = SQLite.bundledExtensions['sqlite-vec'];
+
+        console.log("db:", this.db);
+        console.log("extension:", extension);
+
+
+        await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
+
+        // this.db.execSync(`
+        //     DROP TABLE IF EXISTS photo_vec;
+        // `);
         this.db.execSync(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName} USING vec0(
+            CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512]
             );
         `);
@@ -38,45 +56,55 @@ export class CLIPSQLiteVecStore extends VectorStore
         return "sqlite-vec";
     }
 
-    async addVectors(vectors: Float32Array[], rowIds : number[], options?: AddDocumentOptions)
+    async addVectors(vectors: number[], rowIds : number[], options?: AddDocumentOptions)
     {
+        if (!this.db) await this.initialize();
+
+        const chunked: any[] = [];
+        let index = 0;
+        let size = 512;
+
+        while (index < vectors.length) {
+            chunked.push(vectors.slice(index, index + size));
+            index += size;
+        }
+
         this.db.withTransactionSync(() =>
         {
             const statement = this.db.prepareSync(`
                     INSERT OR REPLACE INTO ${this.tableName}(rowid, embedding) VALUES (?, ?)
                 `);
 
-            try
+            for (let i = 0; i < chunked.length; i ++)
             {
-                for (let i = 0; i < vectors.length; i ++)
+                try
                 {
-                    const vector = vectors[i];
                     const rowId = rowIds[i];
+                    const vector = JSON.stringify(Array.from(chunked[i]));
+
+                    console.log(`1 : ${rowId} 2 : ${vector.length} i : ${i}`)
 
                     statement.executeSync([rowId, vector]);
                 }
+                catch (e) {}
             }
-            catch (e)
-            {
-                console.error(`vector store addVectors error occurred : ${e.message}`);
-
-                throw e;
-            }
-            finally
-            {
-                statement.finalizeSync();
-            }
+            statement.finalizeSync();
         });
+
+        return chunked;
     }
 
     async addPhotos(imageURIs: string[], rowIds : number[], options?: AddDocumentOptions)
     {
-        const vectors = await this.imageEmbeddings.embedDocuments(imageURIs);
-        await this.addVectors(vectors, rowIds);
+        const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
+        const chunked = await this.addVectors(vectors, rowIds);
+        return chunked;
     }
 
     async delete(rowIDs: number[])
     {
+        if (!this.db) await this.initialize();
+
         for (let rowID of rowIDs)
         {
             this.db.runSync(`
@@ -86,9 +114,11 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number)
     {
-        const statement = await this.db.prepareSync(`
+        if (!this.db) await this.initialize();
+
+        const statement = this.db.prepareSync(`
                 SELECT 
                     rowid, 
                     distance 
@@ -102,26 +132,25 @@ export class CLIPSQLiteVecStore extends VectorStore
         {
             const queryVector = new Float32Array(query);
             if (!k) k = 100;
-            const rows = await statement
+            const rows = statement
                 .executeSync([queryVector, k, threshold])
                 .getAllSync();
 
-            const placeholders = rowIds.map(() => "?").join(",");
-            const photos = await this.db
-                .getAllSync<Photo>(`
+            const placeholders = rows.map(() => "?").join(",");
+            const photos = this.db
+                .getAMllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
-            `, rowIds);
-            const photoMap = new Map(photos.map(p => [p.id, p]));
+            `, rows.map((row : any) => row.rowid));
+            const photoap = new Map(photos.map(p => [p.id, p]));
 
-            Database.saveSearchHistory(query);
-
-            const photoWithScores : [Photo, number][] = rows.map((row) => [
-                photoMap.get(row.rowid),
-                1 - row.distance
-            ]);
-            return photoWithScores;
+            return rows.map((row: any) => {
+                return {
+                    photo: photoMap.get(row.rowid),
+                    similarity: 1 - row.distance
+                }
+            });
         }
         finally
         {
@@ -129,9 +158,10 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearch(query: string, threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearch(query: string, threshold : number, k?: number)
     {
-        const queryVec = await this.textEmbeddings.embedQuery(query);
+        const queryVec = await this.textEncoder.run(query) as Float32Array;
+        Database.saveSearchHistory(query);
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
 }

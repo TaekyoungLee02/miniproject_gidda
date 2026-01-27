@@ -31,9 +31,28 @@ export class ImageEncoder extends Session.ModelInferenceSession
         return await super.run(preprocessed);
     }
 
+    async runAll(uris: string[], batchSize : number)
+    {
+        let inputs : Float32Array = new Float32Array(0);
+
+        for (const uri of uris)
+        {
+            let preprocessed = await this.imagePreprocessor.processForMobileClip(uri);
+
+            // concat Float32Array
+            const out = new Float32Array(inputs.length + preprocessed.length);
+
+            out.set(inputs, 0);
+            out.set(preprocessed, inputs.length);
+
+            inputs = out;
+        }
+       return await super.runAll(inputs, batchSize);
+    }
+
     async runEnumerate(uris : string[])
     {
-        let preprocessed = []
+        let preprocessed = [];
         for(let uri of uris)
         {
             preprocessed.push(await this.imagePreprocessor.processForMobileClip(uri));
