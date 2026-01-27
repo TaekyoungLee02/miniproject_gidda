@@ -14,11 +14,11 @@ export class LabelTagger
         const dbFile = new File(new Directory(Paths.document, "SQLite/labels.db"));
         if (!dbFile.exists)
         {
-            const dbAsset = Asset.fromModule(require('./assets/db/labels.db'))
+            const dbAsset = Asset.fromModule(require('../../assets/db/labels.db'))
             await dbAsset.downloadAsync();
 
             // Check if model copy successes
-            if (!dbAsset.localUri) throw new ReferenceError(`${modelName} does not exists.`);
+            if (!dbAsset.localUri) throw new ReferenceError(`db does not exists.`);
             const src = new File(dbAsset.localUri);
             const dst = new File(Paths.document, "SQLite/labels.db");
             src.move(dst);

@@ -1,14 +1,14 @@
 import * as MediaLibrary from 'expo-media-library'
-import * as SQLite from 'expo-sqlite';
 import * as Database from "@/src/db/database"
 import * as Sync from "@/src/db/syncService"
 import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
-import { DATABASE_NAME } from "@/src/lib/constants/constants"
+import { DATABASE_NAME, DISTANCE_THRESHOLD } from "@/src/lib/constants/constants"
 import { Photo } from "@/src/lib/types/photo"
 import { LabelTagger } from "@/src/db/labelTagger";
-import { tagAddress } from "@/src/api/AzureSearchAddressFromTags";
+import { tagAddress } from "@/src/api/azure";
+import { SearchType } from "@/src/lib/enums/enums";
 
-class PhotoDatabaseService
+export class PhotoDatabaseService
 {
     private static instance : PhotoDatabaseService;
     vectorStore : CLIPSQLiteVecStore;
@@ -23,17 +23,17 @@ class PhotoDatabaseService
         return this.instance || (this.instance = new this());
     }
 
-    async initialize()
-    {
-    }
-
     /**
      * Save Photos to DB and Tag photos and Make Address hints
      */
-    async savePhotosToDB()
+    async *savePhotosToDB()
     {
+        await Database.initDB();
+        let cnt : number = 0;
+
         for await (const assets of Sync.getGalleryPhotosSync())
         {
+            cnt += assets.length;
             const photoAssets = assets as MediaLibrary.Asset[];
             const photo_uris = photoAssets.map((item) => item.uri);
             const photo_ids = photoAssets.map((item) => Number(item.id));
@@ -47,8 +47,8 @@ class PhotoDatabaseService
                     captured_at : item.creationTime || Date.now(),
                     width : item.width,
                     height : item.height,
-                    latitude : (item as any).location.latitude ?? null,
-                    longitude : (item as any).location.longitude ?? null,
+                    latitude : (item as any).location ? (item as any).location.latitude : null,
+                    longitude : (item as any).location ? (item as any).location.longitude : null,
                     address : null,
                     ai_tags : null
                 }
@@ -87,13 +87,27 @@ class PhotoDatabaseService
                 {
                     Database.insertPhotoAll(photos);
                 });
+
+            yield cnt / Sync.gallery_photos_amount;
         }
+    }
+
+    async searchPhoto(entities : string[], weights : string[])
+    {
+        const context = SearchType.Context;
+
+        const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
+
+        return selectedPhotos.map((item) => item.photo);
+    }
+
+    private async searchFirstFromDatabase()
+    {
+
     }
 
     private async searchAnotherFromDatas()
     {
 
     }
-
-    
 }

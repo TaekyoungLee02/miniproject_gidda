@@ -72,6 +72,8 @@ export abstract class ModelInferenceSession implements Model
         if (!this.session) await this.initialize();
         if (batchSize) this.batchSize = batchSize;
 
+        console.log(``, [this.batchSize, ...this.inputSize])
+
         this.currentInput = new ort.Tensor(this.inputType, data, [this.batchSize, ...this.inputSize]);
         const output = await this.session.run({[this.inputName]: this.currentInput});
         return output[this.outputName][this.outputLocationName]

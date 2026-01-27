@@ -1,4 +1,4 @@
-import { SearchType } from '../../lib/enums/enums';
+import { SearchType } from '../enums/enums';
 
 export interface SearchAnalysisResult {
   suitability: boolean;   // 검색 적합성 (false면 검색 안 함)

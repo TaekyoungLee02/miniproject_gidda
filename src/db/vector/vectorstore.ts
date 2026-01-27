@@ -1,13 +1,4 @@
 import * as SQLite from 'expo-sqlite';
-<<<<<<< HEAD
-import { VectorStore } from "@langchain/core/vectorstores"
-import { ImageEmbeddings, TextEmbeddings } from "@/src/db/langchain/embedding"
-import { Photo } from "@/src/lib/types/photo"
-=======
-import {VectorStore} from "@langchain/core/vectorstores"
-import {ImageEncoder, TextEncoder} from "@/src/model/Model"
-import {Photo} from "@/src/lib/types/photo"
->>>>>>> 7341a23 ([FIX] Bug Fixes)
 import {VectorStore} from "@langchain/core/vectorstores"
 import {ImageEncoder, TextEncoder} from "@/src/model/Model"
 import {Photo} from "@/src/lib/types/photo"
@@ -17,6 +8,7 @@ export class CLIPSQLiteVecStore extends VectorStore
 {
     db : SQLite.SQLiteDatabase;
     tableName : string;
+    dbName : string;
 
     imageEncoder : ImageEncoder;
     textEncoder : TextEncoder;
@@ -29,13 +21,26 @@ export class CLIPSQLiteVecStore extends VectorStore
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
+        this.dbName = database;
         this.imageEncoder = ImageEncoder.getInstance();
         this.textEncoder = TextEncoder.getInstance();
-        this.db = SQLite.openDatabaseSync(database);
         this.tableName = tableName;
+    }
 
+    async initialize()
+    {
+        this.db = SQLite.openDatabaseSync(this.dbName);
+
+        console.log(``, SQLite.bundledExtensions)
+
+        const extension = SQLite.bundledExtensions['sqlite-vec'];
+
+        console.log("db:", this.db);
+        console.log("extension:", extension);
+
+        await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
         this.db.execSync(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName} USING vec0(
+            CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512]
             );
         `);
@@ -48,6 +53,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async addVectors(vectors: Float32Array[], rowIds : number[], options?: AddDocumentOptions)
     {
+        if (!this.db) await this.initialize();
+
         this.db.withTransactionSync(() =>
         {
             const statement = this.db.prepareSync(`
@@ -86,6 +93,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async delete(rowIDs: number[])
     {
+        if (!this.db) await this.initialize();
+
         for (let rowID of rowIDs)
         {
             this.db.runSync(`
@@ -95,8 +104,10 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number): Promise<[Photo, number][]>
+    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number)
     {
+        if (!this.db) await this.initialize();
+
         const statement = this.db.prepareSync(`
                 SELECT 
                     rowid, 
@@ -124,10 +135,12 @@ export class CLIPSQLiteVecStore extends VectorStore
             `, rows.map((row : any) => row.rowid));
             const photoMap = new Map(photos.map(p => [p.id, p]));
 
-            return rows.map((row: any) => [
-                photoMap.get(row.rowid),
-                1 - row.distance
-            ]);
+            return rows.map((row: any) => {
+                return {
+                    photo: photoMap.get(row.rowid),
+                    similarity: 1 - row.distance
+                }
+            });
         }
         finally
         {
@@ -135,22 +148,10 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearchInternal(
-        query: string,
-        threshold: number,
-        k?: number
-    ): Promise<[Photo, number][]>
+    async similaritySearch(query: string, threshold : number, k?: number)
     {
         const queryVec = await this.textEncoder.run(query) as Float32Array;
         Database.saveSearchHistory(query);
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
     }
-    // VectorStore 요구사항 충족용 (내용 없음)
-    async similaritySearch(
-        query: string,
-        k?: number
-    ): Promise<any[]> {
-        return [];
-    }
-    
 }

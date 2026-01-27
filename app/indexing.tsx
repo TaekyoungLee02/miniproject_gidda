@@ -2,13 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Dimensions, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import * as MediaLibrary from 'expo-media-library';// 전체 갯수 확인용
+import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { insertPhoto } from '@/src/db/database';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 📦 [추가] 완료 처리를 위해 필요
-// 🛠️ [수정] 서비스 파일 import
-import { getGalleryPhotosSync } from '../src/db/syncService';
 import Animated, {
     FadeIn,
     useSharedValue,
@@ -18,9 +14,7 @@ import Animated, {
     withSequence,
     Easing
 } from 'react-native-reanimated';
-
- 
-
+import { PhotoDatabaseService } from '@/src/services/PhotoDatabaseService'
 
 const { width, height } = Dimensions.get('window');
 
@@ -59,57 +53,31 @@ export default function IndexingPage() {
     }, []);
 
     const startProcess = async () => {
-        // 전체 갯수만 먼저 파악 (진행률 표시용)
+
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') { router.replace('/'); return; }
+        const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
 
-        const totalAssets = await MediaLibrary.getAssetsAsync({ mediaType: 'photo' });
-        const totalCount = totalAssets.totalCount;
-        let processedCount = 0;
+        const service = PhotoDatabaseService.getInstance();
 
-        // 🚨 [추가] 사진이 하나도 없으면 바로 Welcome으로 토스!
-        if (totalCount === 0) {
-            await AsyncStorage.setItem('indexed_count', '0');
-            await AsyncStorage.setItem('is_setup_complete', 'true');
-            router.replace('/welcome');
-            return; // 여기서 함수 종료
+        const slideInterval = setInterval(() => {
+            slideIndex.current = (slideIndex.current + 1) % album.assets.length;
+            setCurrentPhoto(album.assets[slideIndex.current].uri);
+        }, 600); // 사진 전환 속도
+
+        for await (const progress of service.savePhotosToDB())
+        {
+            if (progress >= 0.3) setStatusText('#여행의_기록');
+            else if (progress >= 0.6) setStatusText('#맛있는_음식');
+            else if (progress >= 0.9) setStatusText('#분석_마무리_중');
+
+            clearInterval(slideInterval);
         }
-
-        // 서비스 호출
-        // syncService가 50장 처리할 때마다 여기로 'yield' 해줌
-        const syncGenerator = getGalleryPhotosSync();
-            
-        for await (const batch of syncGenerator) {
-            // 배치(50장) 단위로 화면 갱신
-            if (batch && batch.length > 0) {
-                // 배경 사진 바꾸기
-                setCurrentPhoto(batch[0].uri);
-                
-                processedCount += batch.length;
-                
-                // 진행률 계산
-                const percent = Math.min(Math.floor((processedCount / totalCount) * 100), 100);
-                setProgress(percent);
-
-                // 텍스트 업데이트
-                if (percent < 30) setStatusText('#여행의_기록_스캔중');
-                else if (percent < 60) setStatusText('#맛있는_음식_담는중');
-                else setStatusText('#거의_다_됐어요');
-            }
-        }
-        // 완료 처리
-        // Welcome 페이지 등에서 쓰기 위해 저장
-        await AsyncStorage.setItem('indexed_count', processedCount.toString());
-        await AsyncStorage.setItem('is_setup_complete', 'true');
-
-        setTimeout(() => {
-            router.replace('/welcome');
-        }, 500);
-        
+        router.replace('/welcome');
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value },] as const,
+        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value }]
     }));
 
     return (

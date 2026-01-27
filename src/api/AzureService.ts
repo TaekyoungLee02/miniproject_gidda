@@ -2,6 +2,7 @@ import axios from 'axios';
 import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from './constants/prompts';
 import { SearchAnalysisResult } from './types/analysis';
 import { SearchType } from '../lib/enums/enums';
+import axios from "axios";
 
 // 1. Firebase Proxy 서버 주소 (환경변수에서 가져오기)
 const PROXY_URL = process.env.EXPO_PUBLIC_API_URL || "";
@@ -15,12 +16,28 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     // 2. client.chat... 대신 axios.post 사용
     const response = await axios.post(PROXY_URL, {
       messages: [
-        { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
-        { role: "user", content: query }
+        {
+          role: 'system',
+          content: SEARCH_INTENT_PROMPT(currentDateStr),
+        },
+        {
+          role: 'user',
+          content: query,
+        },
       ],
       response_format: { type: "json_object" },
       temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
-    });
+    };
+
+    // const response = await client.chat.completions.create({
+    //   model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    //   messages: [
+    //     { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
+    //     { role: "user", content: query }
+    //   ],
+    //   response_format: { type: "json_object" },
+    //   temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
+    // });
 
     // 3. Axios는 결과를 response.data에 담아줍니다.
     const data = response.data;
@@ -29,7 +46,7 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     if (!result) return null;
 
     const parsed = JSON.parse(result);
-    
+
     return {
       suitability: parsed.suitability,
       // keywords: parsed.keywords,

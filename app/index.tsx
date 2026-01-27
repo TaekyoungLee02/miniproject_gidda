@@ -1,11 +1,8 @@
-///<reference types="nativewind/types" />
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Image, Modal, TouchableOpacity, Platform, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 📦 [추가] 상태 저장을 위해 설치 필요
-// npm install @react-native-async-storage/async-storage 실행하시길
 import { Asset } from 'expo-asset';
 import * as MediaLibrary from 'expo-media-library';
 
@@ -26,42 +23,13 @@ const DEMO_SCENARIOS = [
 ];
 
 export default function StartPage() {
- 
   const router = useRouter();
-  // --- 🛠️ [Integration] 상태 관리 로직 추가 ---
-  const [isChecking, setIsChecking] = useState(true); // 초기 로딩 상태
-  const [nextRoute, setNextRoute] = useState<'/welcome' | '/home'>('/welcome');
-  // 애니메이션 hooks
   const [currentIndex, setCurrentIndex] = useState(0);
   const [initialReady, setInitialReady] = useState(false);
   const [loadedIds, setLoadedIds] = useState<Record<number, boolean>>({});
   const loadedIdsRef = useRef<Record<number, boolean>>({});
   const loadingIdsRef = useRef<Set<number>>(new Set());
   const float = useSharedValue(0);
-
-  // 1️⃣ [Logic] 앱 실행 시 사용자 상태 체크 (DB 연동 준비)
-  useEffect(() => {
-    const checkUserStatus = async () => {
-      try {
-        // AsyncStorage는 앱을 껐다 켜도 데이터가 유지됨.
-        // 'is_setup_complete' 키가 'true'면 이미 인덱싱을 마친 유저임.
-        const isSetup = await AsyncStorage.getItem('is_setup_complete');
-        
-        if (isSetup === 'true') {
-          setNextRoute('/home'); // 이미 완료된 유저 -> 홈으로
-        } else {
-          setNextRoute('/welcome'); // 신규 유저 -> 웰컴(인덱싱)으로
-        }
-      } catch (e) {
-        console.error("Storage Error:", e);
-        setNextRoute('/welcome'); // 에러 시 안전하게 웰컴으로
-      } finally {
-        setIsChecking(false);
-      }
-    };
-
-    checkUserStatus();
-  }, []);
 
   useEffect(() => {
     let isMounted = true;
