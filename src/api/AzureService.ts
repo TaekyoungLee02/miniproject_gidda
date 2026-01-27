@@ -1,8 +1,10 @@
-import { client } from "./AzureFoundry";
+import axios from 'axios';
 import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from './constants/prompts';
 import { SearchAnalysisResult } from './types/analysis';
 import { SearchType } from '../lib/enums/enums';
 
+// 1. Firebase Proxy 서버 주소 (환경변수에서 가져오기)
+const PROXY_URL = process.env.EXPO_PUBLIC_API_URL || "";
 
 export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisResult | null> => {
   try {
@@ -10,8 +12,8 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     const now = new Date();
     const currentDateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${['일','월','화','수','목','금','토'][now.getDay()]}요일`;
 
-    const response = await client.chat.completions.create({
-      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    // 2. client.chat... 대신 axios.post 사용
+    const response = await axios.post(PROXY_URL, {
       messages: [
         { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
         { role: "user", content: query }
@@ -20,7 +22,10 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
       temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
     });
 
-    const result = response.choices[0].message.content;
+    // 3. Axios는 결과를 response.data에 담아줍니다.
+    const data = response.data;
+    const result = data.choices?.[0]?.message?.content;
+
     if (!result) return null;
 
     const parsed = JSON.parse(result);
@@ -74,8 +79,8 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
  */
 export const generateAlbumTitles = async (photoData: string): Promise<string[]> => {
   try {
-    const response = await client.chat.completions.create({
-      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    // 여기도 axios.post로 교체
+    const response = await axios.post(PROXY_URL, {
       messages: [
         { role: "system", content: ALBUM_TITLE_PROMPT },
         { role: "user", content: `다음 사진들에 어울리는 제목을 지어줘:\n${photoData}` }
@@ -83,12 +88,13 @@ export const generateAlbumTitles = async (photoData: string): Promise<string[]> 
       response_format: { type: "json_object" },
       temperature: 0.8, // 창의적인 제목을 위해 온도를 조금 높입니다!
     });
-
-    const result = response.choices[0].message.content;
+const data = response.data;
+    const result = data.choices?.[0]?.message?.content;
+    
     if (!result) return ["새 앨범"];
 
     const parsed = JSON.parse(result);
-    return parsed.titles; // ["여름날의 추억", "제주 바다 나들이", "푸른 조각들"]
+    return parsed.titles;
   } catch (error) {
     console.error("❌ 앨범 제목 생성 실패:", error);
     return ["나의 앨범"];

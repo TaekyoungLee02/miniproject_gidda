@@ -43,6 +43,7 @@
     "lucide-react-native": "^0.562.0",
     "nativewind": "^2.0.11",
     "onnxruntime-react-native": "^1.23.2",
+    "openai": "^6.16.0",
     "papaparse": "^5.5.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
