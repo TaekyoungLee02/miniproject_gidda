@@ -4,8 +4,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as MediaLibrary from 'expo-media-library';
 import { StatusBar } from 'expo-status-bar';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -27,26 +25,13 @@ export default function WelcomePage() {
     const buttonScale = useSharedValue(1);
     const shineValue = useSharedValue(-1); // 버튼 빛 번쩍임용
 
-    // 2. useEffect 대신 useFocusEffect 사용
-    // 화면이 '포커스(Focus)' 될 때마다 실행됨 -> 항상 최신 개수 보장    
-   useFocusEffect(
-        useCallback(() => {
-            const getCount = async () => {
-                const { status } = await MediaLibrary.requestPermissionsAsync();
-                if (status === 'granted') {
-                    // 실제 갤러리 총 개수 가져오기
-                    const assets = await MediaLibrary.getAssetsAsync({ mediaType: 'photo' });
-                    setPhotoCount(assets.totalCount);
-                }
-            };
-            getCount();
-            
-            // cleanup 함수가 필요 없다면 리턴 안 해도 됨
-        }, []) // ✅ useCallback의 닫는 괄호와 의존성 배열
-    ); // ✅ useFocusEffect의 닫는 괄호
-
-    // 애니메이션은 처음 한 번만 실행되면 되니까 useEffect 유지
     useEffect(() => {
+        const getCount = async () => {
+            const assets = await MediaLibrary.getAssetsAsync({ mediaType: 'photo' });
+            setPhotoCount(assets.totalCount);
+        };
+        getCount();
+
         // 🔘 1. 버튼 호흡 애니메이션
         buttonScale.value = withRepeat(
             withTiming(1.03, { duration: 1500, easing: Easing.inOut(Easing.sin) }),

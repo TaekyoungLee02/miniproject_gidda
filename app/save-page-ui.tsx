@@ -11,9 +11,6 @@ import { Menu, X, Save, FolderPlus, Bot, Check, Play, Plus, MessageCircle } from
 import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
 
-// 🔴 [추가] Photo 타입 정의 (백엔드 구조에 맞게) bjy
-import { Photo } from '../src/lib/types';
-
 const { width, height } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
 const IMAGE_SIZE = (width - 48) / COLUMN_COUNT;
@@ -23,17 +20,11 @@ export default function SavePageUI() {
     const params = useLocalSearchParams();
     const userPrompt = params.prompt as string || "";
 
-    // 🔴 [수정] searching.tsx에서 넘어온 실제 데이터들 bjy
-    const incomingPhotos : Photo[] = params.photos ? JSON.parse(params.photos as string) : [];
-    const incomingKeywords : string[] = params.keywords ? JSON.parse(params.keywords as string) : [];
-
     const [activeTags, setActiveTags] = useState<string[]>([]);
-    const [sessions, setSessions] = useState<{ [key: string]: any[] }>({}); // bjy
+    const [sessions, setSessions] = useState<{ [key: string]: MediaLibrary.Asset[] }>({});
     const [currentTagName, setCurrentTagName] = useState<string>("");
-    
-    // 🔴 [수정] MediaLibrary.Asset 대신 Photo 타입을 사용하거나 호환되게 처리 bjy
-    const [photos, setPhotos] = useState<any[]>([]);
-    const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
+    const [photos, setPhotos] = useState<MediaLibrary.Asset[]>([]);
+    const [selectedPhotos, setSelectedPhotos] = useState<MediaLibrary.Asset[]>([]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
@@ -49,24 +40,9 @@ export default function SavePageUI() {
     // 로고 클릭 애니메이션용 Value
     const logoScale = useRef(new Animated.Value(1)).current;
 
-    // 🔴 [수정] 페이지 진입 시 데이터 초기화 로직 bjy
     useEffect(() => {
-        if (incomingPhotos.length > 0) {
-            const tagName = userPrompt || "검색 결과";
-            
-            // 현재 세션에 데이터 저장 bjy
-            setSessions(prev => ({ ...prev, [tagName]: incomingPhotos }));
-            setCurrentTagName(tagName);
-            setPhotos(incomingPhotos);
-            
-            // 상단 태그 바 설정 (넘어온 키워드가 있다면 포함) bjy
-            const tagsToShow = incomingKeywords.length > 0 
-                ? incomingKeywords.map((k: string) => k.replace('#', '')) 
-                : [tagName];
-            setActiveTags(tagsToShow);
-        }
-    }, [params.photos]);
-
+        if (userPrompt) handleNewSearchSession(userPrompt);
+    }, [userPrompt]);
 
     const showGiddaAlert = (title: string, message: string, onConfirm = () => { }) => {
         setAlertConfig({ title, message, onConfirm });
@@ -76,10 +52,17 @@ export default function SavePageUI() {
     const handleTagPress = async (tag: string) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCurrentTagName(tag);
-        // 실제로는 태그별로 다른 사진을 보여주려면 백엔드 재호출이 필요할 수 있지만,
-        // 현재는 검색 결과 세션의 사진을 보여줍니다. bjy
-        setPhotos(sessions[tag] || incomingPhotos);
+        setPhotos(sessions[tag] || []);
         setSelectedPhotos([]);
+    };
+
+    const handleNewSearchSession = async (tagName: string) => {
+        setActiveTags(prev => [tagName, ...prev.filter(t => t !== tagName)].slice(0, 5));
+        const { assets } = await MediaLibrary.getAssetsAsync({ first: 50, sortBy: ['creationTime'] });
+        const filtered = assets.filter((_, i) => (i + tagName.length) % 2 === 0);
+        setSessions(prev => ({ ...prev, [tagName]: filtered }));
+        setCurrentTagName(tagName);
+        setPhotos(filtered);
     };
 
     const toggleSidebar = () => {
@@ -134,7 +117,7 @@ export default function SavePageUI() {
         }, 2000);
     };
 
-    const toggleSelection = (photo: any) => { // bjy
+    const toggleSelection = (photo: MediaLibrary.Asset) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const isSelected = selectedPhotos.find(p => p.id === photo.id);
         setSelectedPhotos(isSelected ? selectedPhotos.filter(p => p.id !== photo.id) : [...selectedPhotos, photo]);
@@ -146,18 +129,18 @@ export default function SavePageUI() {
             {isSidebarOpen && <TouchableWithoutFeedback onPress={toggleSidebar}><Animated.View style={[styles.backdrop, { opacity: opacityAnim }]} /></TouchableWithoutFeedback>}
 
             <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-                            <SafeAreaView style={{ flex: 1 }} edges={['top', 'left']}>
-                                <View style={styles.sidebarHeader}><Text style={styles.sidebarHeaderTitle}>Your Memories</Text></View>
-                                <View style={styles.menuList}>
-                                    <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-photo'); }}>
-                                        <Text style={styles.menuItemText}>사진 저장</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-album-ui'); }}>
-                                        <Text style={styles.menuItemText}>생성된 앨범</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
-                                    </TouchableOpacity>
-                                </View>
-                            </SafeAreaView>
-                        </Animated.View>
+                <SafeAreaView style={{ flex: 1 }} edges={['top', 'left']}>
+                    <View style={styles.sidebarHeader}><Text style={styles.sidebarHeaderTitle}>Your Memories</Text></View>
+                    <View style={styles.menuList}>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-photo'); }}>
+                            <Text style={styles.menuItemText}>사진 저장</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-album-ui'); }}>
+                            <Text style={styles.menuItemText}>생성된 앨범</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
+            </Animated.View>
 
             <SafeAreaView style={{ flex: 1 }}>
                 <View style={styles.header}>
@@ -173,12 +156,12 @@ export default function SavePageUI() {
                         </Pressable>
 
                         {/* ✅ 디자인 개선된 + 버튼: 크림색 둥근 네모 배경 추가 */}
-                        <TouchableOpacity 
-                            onPress={handlePlusPress} 
+                        <TouchableOpacity
+                            onPress={handlePlusPress}
                             style={styles.plusButtonContainer}
                             activeOpacity={0.7}
                         >
-                        <Plus color="#F38A2C" size={24} strokeWidth={3} />
+                            <Plus color="#F38A2C" size={24} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
 
@@ -206,27 +189,27 @@ export default function SavePageUI() {
                         })}
                     </View>
                 </ScrollView>
-                
-                                <View style={styles.controlBar}>
-                                    <View style={styles.actionArea}>
-                                        <TouchableOpacity style={styles.mainActionBtn} onPress={handleSavePhotos}><Save color="#F38A2C" size={28} /><Text style={styles.actionLabel}>사진 저장</Text></TouchableOpacity>
-                                        <TouchableOpacity style={styles.mainActionBtn} onPress={handleCreateAlbumAI}><FolderPlus color="#F38A2C" size={28} /><Text style={styles.actionLabel}>앨범 저장</Text></TouchableOpacity>
-                                        <TouchableOpacity style={styles.mainActionBtn} onPress={() => { setIsAiSheetVisible(true); Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true }).start(); }}><Bot color="#F38A2C" size={28} /><Text style={styles.actionLabel}>AI</Text></TouchableOpacity>
-                                        <TouchableOpacity style={styles.kakaoActionBtn}>
-                                            <MessageCircle color="black" fill="#FEE500" size={28} />
-                                            <Text style={[styles.actionLabel, { color: '#333' }]}>카톡 공유</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                
-                                <Modal transparent visible={isLoadingAI}>
-                                    <View style={styles.loadingOverlay}>
-                                        <View style={styles.loadingBox}>
-                                            <ActivityIndicator size="large" color="#F38A2C" />
-                                            <Text style={styles.loadingText}>AI가 앨범을 긷고 있습니다...</Text>
-                                        </View>
-                                    </View>
-                                </Modal>
+
+                <View style={styles.controlBar}>
+                    <View style={styles.actionArea}>
+                        <TouchableOpacity style={styles.mainActionBtn} onPress={handleSavePhotos}><Save color="#F38A2C" size={28} /><Text style={styles.actionLabel}>사진 저장</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.mainActionBtn} onPress={handleCreateAlbumAI}><FolderPlus color="#F38A2C" size={28} /><Text style={styles.actionLabel}>앨범 저장</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.mainActionBtn} onPress={() => { setIsAiSheetVisible(true); Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true }).start(); }}><Bot color="#F38A2C" size={28} /><Text style={styles.actionLabel}>AI</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.kakaoActionBtn}>
+                            <MessageCircle color="black" fill="#FEE500" size={28} />
+                            <Text style={[styles.actionLabel, { color: '#333' }]}>카톡 공유</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <Modal transparent visible={isLoadingAI}>
+                    <View style={styles.loadingOverlay}>
+                        <View style={styles.loadingBox}>
+                            <ActivityIndicator size="large" color="#F38A2C" />
+                            <Text style={styles.loadingText}>AI가 앨범을 긷고 있습니다...</Text>
+                        </View>
+                    </View>
+                </Modal>
 
                 <Modal transparent visible={alertVisible} animationType="fade">
                     <View style={styles.alertOverlay}>
