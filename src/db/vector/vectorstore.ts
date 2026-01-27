@@ -41,9 +41,9 @@ export class CLIPSQLiteVecStore extends VectorStore
 
         await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
 
-        this.db.execSync(`
-            DROP TABLE IF EXISTS photo_vec;
-        `);
+        // this.db.execSync(`
+        //     DROP TABLE IF EXISTS photo_vec;
+        // `);
         this.db.execSync(`
             CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512]
@@ -138,12 +138,12 @@ export class CLIPSQLiteVecStore extends VectorStore
 
             const placeholders = rows.map(() => "?").join(",");
             const photos = this.db
-                .getAllSync<Photo>(`
+                .getAMllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
             `, rows.map((row : any) => row.rowid));
-            const photoMap = new Map(photos.map(p => [p.id, p]));
+            const photoap = new Map(photos.map(p => [p.id, p]));
 
             return rows.map((row: any) => {
                 return {

@@ -29,14 +29,27 @@ export const api = onRequest({ secrets: [AZURE_AI_FOUNDRY_KEY, AZURE_AI_FOUNDRY_
                 // "Authorization": `Bearer ${token}`,
             },
             body: JSON.stringify(req.body),
-        });
+        })
+            .then((response) =>
+            {
+                return response.json();
+            })
+            .then((json) =>
+            {
+                return json ? json.choices[0].message.content : null;
+            })
 
-        const data = await resp.json();
-        const content = data?.choices?.[0]?.message?.content ?? "";
 
-        console.log(`content`, content)
+        //const data = resp?.body;
 
-        res.status(200).json({ content, raw: data });
+        //const json = await new Response(data).json();
+        //console.log(`response, `, json);
+        //const content = data?.choices?.[0]?.message?.content ?? "";
+
+        console.log(`resp`, resp)
+        //console.log(`content`, content)
+
+        res.status(200).json({ resp: resp });
     } catch (error) {
         console.error("서버 에러:", error);
         res.status(500).send("Internal Server Error");

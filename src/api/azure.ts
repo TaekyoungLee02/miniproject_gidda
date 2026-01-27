@@ -66,27 +66,22 @@ export const tagAddress = async (photos: Photo[]) =>
             // (api-key 헤더 제거됨 -> 서버가 처리함)
             const response = await axios.post(PROXY_URL, payload);
 
-            console.log(`response${JSON.stringify(response.data)}`);
+            console.log(`response ${JSON.stringify(response.data.resp)}`);
 
-            if (response.status !== 200) {
+            if (response.status != 200) {
                 console.error('❌ [Azure] API 호출 오류:', response.data);
                 throw new Error(`Azure API Error: ${response.status}`);
             }
+            //
+            // const data = JSON.stringify(response.data);
+            //
+            // if (!data) {
+            //     throw new Error("Azure 응답이 비어있습니다.");
+            // }
 
-            // Axios는 response.data가 이미 JSON 객체임
-            const data = response.data;
-            // Azure 응답 구조 파싱 (choices[0].message.content)
-            const inferredLocation = data.choices[0]?.message?.content?.trim();
+            const parsed = JSON.parse(response.data.resp);
 
-            if (!inferredLocation) {
-                throw new Error("Azure 응답이 비어있습니다.");
-            }
-
-            // 🆕 JSON 파싱 (문자열 -> 객체 변환)
-            // 가끔 GPT가 ```json ... ``` 같은 마크다운을 붙일 때가 있어서 제거 처리
-            const cleanJson = inferredLocation.replace(/```json|```/g, '').trim();
-
-            const parsed = JSON.parse(cleanJson);
+            console.log(`parsed : `, parsed)
 
             // unknown 처리
             if (parsed.name === 'unknown') {
@@ -103,7 +98,7 @@ export const tagAddress = async (photos: Photo[]) =>
             if (e.response) {
                 console.error("Server Response:", e.response.data);
             }
-            throw e;
+            photos[i].address = "nomatch";
         }
     }
 }
