@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, Share, Alert
+    View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, Share, Alert, ActivityIndicator
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ArrowLeft, Share2, Sparkles, Check } from 'lucide-react-native';
-import * as MediaLibrary from 'expo-media-library';
+
+// ✅ [연결] 명근님 DB 함수
+import { getPhotosByAlbum } from '../src/db/database';
+import { Photo } from '../src/lib/types/photo';
 
 const { width } = Dimensions.get('window');
 // ✅ 가로 3열 규격을 위한 보수적 계산 (패딩 48 제외 후 미세 여백 추가 차감)
@@ -15,43 +18,50 @@ const ITEM_SIZE = (width - 48) / COLUMN - 5;
 
 export default function AlbumDetailUIPage() {
     const router = useRouter();
-    const { title, albumId } = useLocalSearchParams();
-    const [albumPhotos, setAlbumPhotos] = useState<MediaLibrary.Asset[]>([]);
+    // ✅ add-album-ui에서 넘겨준 파라미터 받기 bjy
+    const { title, albumId } = useLocalSearchParams();    
+    const [albumPhotos, setAlbumPhotos] = useState<Photo[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(true); // bjy
 
     useEffect(() => {
-        loadAlbumPhotos();
+        if (albumId) { //bjy
+            loadAlbumPhotos();
+        }
     }, [albumId]);
 
+    // 📥 1. DB에서 해당 앨범에 속한 사진 가져오기 bjy
     const loadAlbumPhotos = async () => {
+        setIsLoading(true);
         try {
-            // UI 확인용 더미 데이터 로딩 (백엔드 연동 시 이 부분을 API 호출로 교체)
-            const { assets } = await MediaLibrary.getAssetsAsync({
-                first: 12,
-                sortBy: ['creationTime']
-            });
-            setAlbumPhotos(assets);
+            // albumId는 string으로 넘어오므로 number로 변환
+            const id = Array.isArray(albumId) ? parseInt(albumId[0]) : parseInt(albumId);
+            const photos = await getPhotosByAlbum(id);
+            setAlbumPhotos(photos);
         } catch (error) {
-            console.error("사진 로드 에러:", error);
+            console.error("앨범 사진 로드 에러:", error);
+            Alert.alert("오류", "사진을 불러오는 중 문제가 발생했습니다.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    // 사진 선택/해제 토글
+    // 🔄 2. 사진 선택 토글
     const toggleSelect = (id: string) => {
         setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
 
-    // 선택된 사진 공유 기능
+    // 📤 3. 선택된 사진 공유 (시스템 공유창 활용)
     const onShareSelected = async () => {
         if (selectedIds.length === 0) {
             return Alert.alert("알림", "공유할 사진을 먼저 선택해주세요.");
-        }
+        }        
         try {
-            await Share.share({
-                message: `[GIDDA] '${title || "AI 앨범"}'에서 선택한 ${selectedIds.length}장의 추억입니다.`,
-            });
+                    await Share.share({
+                        message: `[GIDDA] '${title || "AI 앨범"}'에서 선택한 ${selectedIds.length}장의 추억입니다.`,
+                    });
         } catch (error) {
             Alert.alert("공유 실패", "기능을 실행할 수 없습니다.");
         }
@@ -67,7 +77,7 @@ export default function AlbumDetailUIPage() {
                 <View style={styles.titleContainer}>
                     <Sparkles size={18} color="#F38A2C" fill="#F38A2C" />
                     <Text style={styles.headerTitle} numberOfLines={1}>
-                        {title || "맛있는 디저트"}
+                        {title}
                     </Text>
                 </View>
                 <TouchableOpacity onPress={onShareSelected}>
@@ -79,7 +89,7 @@ export default function AlbumDetailUIPage() {
                 {/* --- 2. 상단 인포 박스 (AI 분석 강조) --- */}
                 <View style={styles.infoBox}>
                     <Text style={styles.infoText}>AI가 분석한 이 앨범의 테마는</Text>
-                    <Text style={styles.themeText}>"{title || "맛있는 디저트"}" 입니다.</Text>
+                    <Text style={styles.themeText}>"{title}" 입니다.</Text>
                 </View>
 
                 {/* --- 3. 3열 사진 그리드 --- */}
