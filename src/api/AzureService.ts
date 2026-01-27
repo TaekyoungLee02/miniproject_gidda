@@ -1,7 +1,7 @@
-import { client } from "./AzureFoundry";
-import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from '@/src/lib/constants/constants';
+import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT, PROXY_URL } from '@/src/lib/constants/constants';
 import { SearchAnalysisResult } from '@/src/lib/types/analysis';
 import { SearchType } from '../lib/enums/enums';
+import axios from "axios";
 
 
 export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisResult | null> => {
@@ -10,21 +10,45 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     const now = new Date();
     const currentDateStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()} ${['일','월','화','수','목','금','토'][now.getDay()]}요일`;
 
-    const response = await client.chat.completions.create({
-      model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    const payload = {
       messages: [
-        { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
-        { role: "user", content: query }
+        {
+          role: 'system',
+          content: SEARCH_INTENT_PROMPT(currentDateStr),
+        },
+        {
+          role: 'user',
+          content: query,
+        },
       ],
       response_format: { type: "json_object" },
       temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
-    });
+    };
 
-    const result = response.choices[0].message.content;
+    // const response = await client.chat.completions.create({
+    //   model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
+    //   messages: [
+    //     { role: "system", content: SEARCH_INTENT_PROMPT(currentDateStr) }, // 날짜 주입!
+    //     { role: "user", content: query }
+    //   ],
+    //   response_format: { type: "json_object" },
+    //   temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
+    // });
+
+    const response = await axios.post(PROXY_URL, payload);
+
+    if (response.status !== 200) {
+      console.error('❌ [Azure] API 호출 오류:', response.data);
+      throw new Error(`Azure API Error: ${response.status}`);
+    }
+
+    // Axios는 response.data가 이미 JSON 객체임
+    const data = response.data;
+    const result = data.choices[0].message.content;
     if (!result) return null;
 
     const parsed = JSON.parse(result);
-    
+
     return {
       suitability: parsed.suitability,
       // keywords: parsed.keywords,

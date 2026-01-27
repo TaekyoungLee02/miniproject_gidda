@@ -110,3 +110,5 @@ export const TAG_SEARCH_PROMPT_SYSTEM = `
 export const TAG_SEARCH_PROMPT_USER = `
 다음 환경 키워드들이 추출된 사진은 어느 지역에서 찍힌 것일까?
 `
+
+export const PROXY_URL = process.env.EXPO_PUBLIC_API_URL;

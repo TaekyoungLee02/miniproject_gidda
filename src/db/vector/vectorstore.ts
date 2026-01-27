@@ -8,6 +8,7 @@ export class CLIPSQLiteVecStore extends VectorStore
 {
     db : SQLite.SQLiteDatabase;
     tableName : string;
+    dbName : string;
 
     imageEncoder : ImageEncoder;
     textEncoder : TextEncoder;
@@ -20,13 +21,26 @@ export class CLIPSQLiteVecStore extends VectorStore
      */
     constructor(database : string, tableName : string = "photo_vec") {
         super();
+        this.dbName = database;
         this.imageEncoder = ImageEncoder.getInstance();
         this.textEncoder = TextEncoder.getInstance();
-        this.db = SQLite.openDatabaseSync(database);
         this.tableName = tableName;
+    }
 
+    async initialize()
+    {
+        this.db = SQLite.openDatabaseSync(this.dbName);
+
+        console.log(``, SQLite.bundledExtensions)
+
+        const extension = SQLite.bundledExtensions['sqlite-vec'];
+
+        console.log("db:", this.db);
+        console.log("extension:", extension);
+
+        await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
         this.db.execSync(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName} USING vec0(
+            CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512]
             );
         `);
@@ -39,6 +53,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async addVectors(vectors: Float32Array[], rowIds : number[], options?: AddDocumentOptions)
     {
+        if (!this.db) await this.initialize();
+
         this.db.withTransactionSync(() =>
         {
             const statement = this.db.prepareSync(`
@@ -77,6 +93,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async delete(rowIDs: number[])
     {
+        if (!this.db) await this.initialize();
+
         for (let rowID of rowIDs)
         {
             this.db.runSync(`
@@ -88,6 +106,8 @@ export class CLIPSQLiteVecStore extends VectorStore
 
     async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number)
     {
+        if (!this.db) await this.initialize();
+
         const statement = this.db.prepareSync(`
                 SELECT 
                     rowid, 
