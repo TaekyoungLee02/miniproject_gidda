@@ -2,13 +2,14 @@ import React, { useState, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity,
     Dimensions, Keyboard, TouchableWithoutFeedback, StyleSheet,
-    KeyboardAvoidingView, Platform, Animated
+    KeyboardAvoidingView, Platform, Animated, Alert // 👈 Alert 추가
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Menu, Play, X, Save, FolderPlus } from 'lucide-react-native';
+import { Menu, Play, Save, FolderPlus } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { analyzeUserSearch } from '../src/api/AzureService'; // 👈 백엔드 분석 함수 호출
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ export default function HomePage() {
     const router = useRouter();
     const [inputText, setInputText] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // 👈 로딩 상태 추가
 
     const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -38,9 +40,38 @@ export default function HomePage() {
         Keyboard.dismiss();
     };
 
-    const handleSearch = () => {
+    // --- 🚀 백엔드 통합 검색 핸들러 (bjy 로직 이식) ---
+    const handleSearch = async () => {
         if (!inputText.trim()) return;
-        router.push({ pathname: '/searching', params: { prompt: inputText } });
+        
+        setIsLoading(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // 피드백 추가
+
+        try {
+            // 1. Azure 분석 함수 호출
+            const analysisResult = await analyzeUserSearch(inputText);
+
+            if (analysisResult) {
+                // 2. 분석된 엔티티와 가중치를 가지고 이동 (params 구조 유지)
+                router.push({
+                    pathname: '/searching' as any, 
+                    params: { 
+                        prompt: inputText,
+                        entities: JSON.stringify(analysisResult.entities),
+                        weights: JSON.stringify([
+                            analysisResult.weights["0"], 
+                            analysisResult.weights["1"], 
+                            analysisResult.weights["2"]
+                        ])
+                    }
+                });
+            } 
+        } catch (error) {
+            console.error("분석 중 오류 발생:", error);
+            Alert.alert("오류", "이미지 검색 분석 중 문제가 발생했습니다.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -96,18 +127,23 @@ export default function HomePage() {
                             <Text style={styles.subText}>기억을 긷다, 추억을 잇다</Text>
                         </View>
 
-                        <View style={styles.inputContainer}>
+                        <View style={[styles.inputContainer, isLoading && { opacity: 0.7 }]}>
                             <TextInput
                                 style={styles.textInput}
-                                placeholder="예시) 신분증 사진 찾아줘!"
+                                placeholder={isLoading ? "AI 분석 중..." : "예시) 신분증 사진 찾아줘!"}
                                 placeholderTextColor="#888"
                                 value={inputText}
                                 onChangeText={setInputText}
                                 returnKeyType="search"
                                 onSubmitEditing={handleSearch}
+                                editable={!isLoading} // 로딩 중 수정 방지
                             />
-                            <TouchableOpacity style={styles.inputButton} onPress={handleSearch}>
-                                <Text style={styles.inputButtonText}>Enter</Text>
+                            <TouchableOpacity 
+                                style={[styles.inputButton, isLoading && { backgroundColor: '#CCC' }]} 
+                                onPress={handleSearch}
+                                disabled={isLoading}
+                            >
+                                <Text style={styles.inputButtonText}>{isLoading ? "..." : "Enter"}</Text>
                             </TouchableOpacity>
                         </View>
                     </KeyboardAvoidingView>
