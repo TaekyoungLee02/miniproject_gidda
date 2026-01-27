@@ -44,7 +44,7 @@ export default function HomePage() {
             // 1. Azure 분석 함수 호출
             const analysisResult = await analyzeUserSearch(inputText);
 
-            if (analysisResult && analysisResult.suitability) {
+            if (analysisResult /*&& analysisResult.suitability*/) {
                 // 2. 적합할 경우: 분석된 엔티티와 가중치를 가지고 이동
                 router.push({
                     pathname: '/searching' as any, 
@@ -54,10 +54,11 @@ export default function HomePage() {
                         weights: [analysisResult.weights["0"], analysisResult.weights["1"], analysisResult.weights["2"]]
                     }
                 });
-            } else {
-                // 3. 부적합할 경우 (바디체크 등 보안 필터링)
-                Alert.alert("알림", analysisResult?.reason || "이미지 검색에 적합하지 않은 검색어입니다.");
-            }
+            } 
+            // else {
+            //     // 3. 부적합할 경우 (바디체크 등 보안 필터링)
+            //     Alert.alert("알림", analysisResult?.reason || "이미지 검색에 적합하지 않은 검색어입니다.");
+            // }
         } catch (error) {
             console.error("분석 중 오류 발생:", error);
             Alert.alert("오류", "분석 중 문제가 발생했습니다.");

@@ -1,6 +1,5 @@
-import axios from 'axios';
-import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from './constants/prompts';
-import { SearchAnalysisResult } from './types/analysis';
+import { SEARCH_INTENT_PROMPT, ALBUM_TITLE_PROMPT } from '@/src/lib/constants/constants';
+import { SearchAnalysisResult } from '@/src/lib/types/analysis';
 import { SearchType } from '../lib/enums/enums';
 import axios from "axios";
 
@@ -27,7 +26,7 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
       ],
       response_format: { type: "json_object" },
       temperature: 0.1, // 분석의 일관성을 위해 더 낮춤
-    };
+    });
 
     // const response = await client.chat.completions.create({
     //   model: process.env.EXPO_PUBLIC_AZURE_DEPLOYMENT_NAME || "gpt-4o-mini",
