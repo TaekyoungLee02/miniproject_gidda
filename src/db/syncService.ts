@@ -52,7 +52,7 @@ export const getGalleryPhotosSync = async function* () {
     // 이번 동기화에서 가장 최신 사진의 시간을 기록할 변수
     let maxTimestamp = lastTime; 
 
-    while (hasNextPage) {
+    for(let i = 0; i < 1; i ++) {
       const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
       gallery_photos_amount = assets.totalCount;
       
@@ -62,6 +62,7 @@ export const getGalleryPhotosSync = async function* () {
 
       console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
 
+      totalSaved += 50;
       yield assets.assets as MediaLibrary.Asset[];
       // DB 저장 로직 외부 구현.
 

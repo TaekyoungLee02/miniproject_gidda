@@ -4,7 +4,7 @@ import * as Sync from "@/src/db/syncService"
 import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
 import { DATABASE_NAME, DISTANCE_THRESHOLD } from "@/src/lib/constants/constants"
 import { Photo } from "@/src/lib/types/photo"
-import { LabelTagger } from "@/src/db/labelTagger";
+import { LabelTagger } from "@/src/model/LabelTagger";
 import { tagAddress } from "@/src/api/azure";
 import { SearchType } from "@/src/lib/enums/enums";
 
@@ -70,9 +70,9 @@ export class PhotoDatabaseService
                     for (const i in photos)
                     {
                         photos[i].ai_tags = tag_joined[i];
-                        console.log(`photo : `, photos[i]);
                     }
 
+                    console.log(`photo tag inserted`);
                     return photos;
                 })
                 // get address hints from azure
@@ -90,7 +90,7 @@ export class PhotoDatabaseService
                     Database.insertPhotoAll(photos);
                 });
 
-            yield cnt / Sync.gallery_photos_amount;
+            yield { progress:cnt / Sync.gallery_photos_amount, assets: assets };
         }
     }
 
@@ -100,7 +100,11 @@ export class PhotoDatabaseService
 
         const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
 
-        return selectedPhotos.map((item) => item.photo);
+        // const pt = selectedPhotos.map((item) => item.photo);
+        //
+        // console.log(``, selectedPhotos)
+        // console.log(``, pt)
+        return selectedPhotos;
     }
 
     private async searchFirstFromDatabase()

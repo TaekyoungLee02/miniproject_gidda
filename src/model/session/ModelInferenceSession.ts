@@ -50,19 +50,22 @@ export abstract class ModelInferenceSession implements Model
     async initialize()
     {
         this.path = await Loader.prepareModel(this.modelType);
-        console.log(`path : ${this.path}`)
         this.session = await ort.InferenceSession.create(this.path, { executionProviders: ["cpu"] });
         this.inputName = this.session.inputNames[0];
         this.outputName = this.session.outputNames[0];
+        console.log(`model initialized. model path : ${this.path}`)
     }
 
     // get encoded vector
     async run(data : any)
     {
         if (!this.session) await this.initialize();
-
         this.currentInput = new ort.Tensor(this.inputType, data, [1, ...this.inputSize]);
+
+        console.log(`model run start. input : ${this.currentInput.dims}`)
         const output = await this.session.run({[this.inputName]: this.currentInput});
+        console.log(`model run finished.`)
+
         return output[this.outputName][this.outputLocationName]
     }
 
@@ -72,10 +75,12 @@ export abstract class ModelInferenceSession implements Model
         if (!this.session) await this.initialize();
         if (batchSize) this.batchSize = batchSize;
 
-        console.log(``, [this.batchSize, ...this.inputSize])
-
         this.currentInput = new ort.Tensor(this.inputType, data, [this.batchSize, ...this.inputSize]);
+
+        console.log(`model run start. input : ${this.currentInput.dims}`)
         const output = await this.session.run({[this.inputName]: this.currentInput});
+        console.log(`model run finished.`)
+
         return output[this.outputName][this.outputLocationName]
     }
 

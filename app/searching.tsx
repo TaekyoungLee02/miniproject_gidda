@@ -13,6 +13,7 @@ import Animated, {
 // 🔴 [연결] 백엔드 및 서비스 함수 임포트
 import { SearchType } from '../src/lib/enums/enums';
 import { PhotoDatabaseService } from "@/src/services/PhotoDatabaseService";
+import {SearchAnalysisResult} from "../src/lib/types/analysis";
 
 const { width } = Dimensions.get('window');
 
@@ -36,9 +37,8 @@ export default function SearchingPage() {
     const params = useLocalSearchParams();
     
     // Home에서 넘어온 데이터들
-    const userPrompt = params.prompt as string || "추억";
-    const entitiesStr = params.entities as string; 
-    const weightsStr = params.weights as string; // 가중치 정보 (JSON string으로 받음)
+    const userPrompt = params.prompt || "추억";
+    const searchResult = JSON.parse(params.result) as SearchAnalysisResult;
 
     const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
     const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
@@ -77,14 +77,14 @@ export default function SearchingPage() {
         // 2. 🔴 Azure 분석 결과에서 실제 키워드 추출 (Fake 제거)
         let keywordList: string[] = [];
         try {
-            const entities = JSON.parse(entitiesStr);
-            const weights = JSON.parse(weightsStr);
-            
+            const entities = searchResult.entities;
+            const weights = searchResult.weights;
+
             // Context, Time, Space 단어 합치기
             const allWords = [
-                ...(entities[SearchType.Context] || []),
-                ...(entities[SearchType.Time] || []),
-                ...(entities[SearchType.Space] || [])
+                ...(entities["0"]),
+                ...(entities["1"]),
+                ...(entities["2"])
             ];
             keywordList = allWords.map(word => `#${word}`);
 
@@ -103,6 +103,8 @@ export default function SearchingPage() {
                 new Promise((r) => setTimeout(r, 4500)),
             ]);
 
+            const searchPhotos = searchResults.map((value) => value.photo as Photo);
+
             if (shuffleInterval) clearInterval(shuffleInterval);
 
             // 4. 결과 페이지로 이동 (데이터 전달)
@@ -110,7 +112,7 @@ export default function SearchingPage() {
                 pathname: '/save-page-ui' as any, 
                 params: {
                     prompt: userPrompt,
-                    photos: JSON.stringify(searchResults), 
+                    photos: JSON.stringify(searchPhotos),
                     keywords: JSON.stringify(keywordList)
                 }
             });

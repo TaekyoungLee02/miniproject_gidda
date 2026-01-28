@@ -18,12 +18,13 @@ export const MODEL_MODULES = {
 } as const;
 
 export const IMG_HEIGHT_WIDTH : number = 256;
+export const IMG_SIZE_HALF : number = 128;
 export const IMG_COLOR_SIZE : number = 65536;
 export const IMG_BUFFER_SIZE : number = 196608;
 
 export const DATABASE_NAME : string = 'photos.db';
 
-export const DISTANCE_THRESHOLD : number = 0.3
+export const DISTANCE_THRESHOLD : number = 0.84
 
 /**
  * 앱 시작 시 화면에 띄워줄 예시 검색어들입니다.
@@ -39,39 +40,52 @@ export const INTRO_EXAMPLE_QUERIES = [
 ];
 
 export const SEARCH_INTENT_PROMPT = (currentDate: string) => `
-당신은 갤러리 검색 서비스 '긷다(GIDDA)'의 검색 의도 분석 엔진입니다. 
-현재 일시(${currentDate})를 기준으로 사용자의 모호한 요청을 정교한 검색 데이터로 변환하세요.
+You are the search-intent analysis engine for the gallery search service “GIDDA.”
+Based on the current date and time (${currentDate}), convert the user’s ambiguous request into precise search data.
 
-[1. Suitability: 검색 의도 판별 가이드라인]
-사용자가 '이미지 기록'을 찾으려 한다면 무조건 true입니다.
-- *의도 긍정 신호*: '찍은', '캡처한', '저장한', '보여줘', '찾아줘', '어디야' 등의 표현이 포함된 경우.
-- *기록물 허용*: 카톡 대화 캡처, 계약서, 신분증, 영수증, 악보, 당근마켓 사진, 흔들린 사진 등 갤러리에 존재할 수 있는 모든 것은 검색 대상입니다.
-- *거절 대상*: 이미지 검색과 전혀 무관한 일반 질문(예: 비트코인 가격, 오늘 날씨 등)만 false입니다.
+Archival content allowed: KakaoTalk chat screenshots, contracts, ID cards, receipts, sheet music, Karrot Market photos, blurry photos—anything that could exist in a gallery is a valid search target.
 
-[2. Entities: 키워드 추출 규칙]
-각 타입에 맞는 키워드를 추출하되, 다음 규칙을 따르세요.
-- **핵심 원칙**: 검색에 도움이 되는 '명사' 위주로 추출하고, 불필요한 동사는 '명사화'하거나 제외하세요.
-- *0 (Context)*: 사물, 활동, 사진의 상태(흔들림, 어두움), 앱 이름(카톡, 인스타, 당근마켓)
-  * (필터링): '사진', '찍은', '찍었던', '캡처한', '보여줘', '거기', '것' 등은 제외.
-  * (명사화): '먹었던' -> '음식', '파티한' -> '파티', '흔들린' -> '흔들림', '조용한' -> '조용함'.
-- **1 (Time)**: 상대적 시간은 ${currentDate}를 기준으로 **수학적으로 계산**하세요.
-  * 현재 2026-01이면 '지난달'은 반드시 **2025-12**입니다. (2023 아님!)
-  * '재작년'은 2024로 변환하세요.
-- **2 (Space)**: 구체적 지명
-- **필터링**: '사진', '동영상' 같이 검색에 불필요한 일반 명사는 추출하지 마세요.
+[Entities: Keyword Extraction Rules]
+Extract keywords according to each type, following these rules:
 
-[3. Weights: 가중치 배분]
-- Context, Time, Space의 총 합은 1.00 입니다.
+Core principle: Extract mainly nouns that help with search. Unnecessary verbs should be nominalized or excluded.
 
-[4. English: 영어 번역]
-- 출력되는 모든 언어는 영어로 번역해서 출력해주세요.
+0 (Context)
+Objects, activities, photo conditions (blur, darkness), app names (KakaoTalk, Instagram, Karrot Market)
 
-[JSON 출력 형식]
+(Filtering): Exclude words like “photo,” “taken,” “show,” “there,” “thing,” “captured,” etc.
+
+(Nominalization examples):
+
+“ate” → “food”
+
+“partied” → “party”
+
+“shaken” → “blur”
+
+“quiet” → “quietness”
+
+1 (Time)
+Convert relative time expressions mathematically based on ${currentDate}.
+
+If the current date is 2026-01, then “last month” must be 2025-12 (not 2023!).
+
+“The year before last” must be converted to 2024.
+
+2 (Space)
+Specific place names.
+
+[Weights: Weight Allocation]
+The total weight of Context + Time + Space must equal 1.00.
+
+* English translation
+- all of the text in exporting json should be translated in english.
+
+[export JSON like this]
 {
-  "suitability": true,
-  "entities": { "0": ["키워드"], "1": ["키워드"], "2": ["키워드"] },
+  "entities": { "0": ["your keyword"], "1": ["your keyword"], "2": ["your keyword"] },
   "weights": { "0": 0.0, "1": 0.0, "2": 0.0 },
-  "reason": "분석 사유를 짧게 설명"
+  "reason": "explain your reason to output"
 }
 `;
 

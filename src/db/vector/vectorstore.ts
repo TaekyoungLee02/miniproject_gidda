@@ -31,12 +31,12 @@ export class CLIPSQLiteVecStore extends VectorStore
     {
         this.db = SQLite.openDatabaseSync(this.dbName);
 
-        console.log(``, SQLite.bundledExtensions)
+        //console.log(``, SQLite.bundledExtensions)
 
         const extension = SQLite.bundledExtensions['sqlite-vec'];
 
-        console.log("db:", this.db);
-        console.log("extension:", extension);
+        // console.log("db:", this.db);
+        // console.log("extension:", extension);
 
 
         await this.db.loadExtensionAsync(extension.libPath, extension.entryPoint);
@@ -46,7 +46,7 @@ export class CLIPSQLiteVecStore extends VectorStore
         // `);
         this.db.execSync(`
             CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
-                embedding float[512]
+                embedding float[512] distance=cosine
             );
         `);
     }
@@ -71,9 +71,13 @@ export class CLIPSQLiteVecStore extends VectorStore
 
         this.db.withTransactionSync(() =>
         {
+            const deleteStatement = this.db.prepareSync(`
+                DELETE FROM ${this.tableName} WHERE rowid = ?;
+            `);
             const statement = this.db.prepareSync(`
-                    INSERT OR REPLACE INTO ${this.tableName}(rowid, embedding) VALUES (?, ?)
-                `);
+                INSERT INTO ${this.tableName}(rowid, embedding)
+                VALUES (?, ?);
+            `);
 
             for (let i = 0; i < chunked.length; i ++)
             {
@@ -82,8 +86,7 @@ export class CLIPSQLiteVecStore extends VectorStore
                     const rowId = rowIds[i];
                     const vector = JSON.stringify(Array.from(chunked[i]));
 
-                    console.log(`1 : ${rowId} 2 : ${vector.length} i : ${i}`)
-
+                    deleteStatement.executeSync([rowId]);
                     statement.executeSync([rowId, vector]);
                 }
                 catch (e) {}
@@ -98,6 +101,7 @@ export class CLIPSQLiteVecStore extends VectorStore
     {
         const vectors = await this.imageEncoder.runAll(imageURIs, imageURIs.length) as Float32Array[];
         const chunked = await this.addVectors(vectors, rowIds);
+        console.log(`photo vector stored. vector size : `, chunked.length)
         return chunked;
     }
 
@@ -130,27 +134,46 @@ export class CLIPSQLiteVecStore extends VectorStore
 
         try
         {
-            const queryVector = new Float32Array(query);
+            const queryVector = JSON.stringify(Array.from(query));
             if (!k) k = 100;
             const rows = statement
                 .executeSync([queryVector, k, threshold])
                 .getAllSync();
 
+
             const placeholders = rows.map(() => "?").join(",");
             const photos = this.db
-                .getAMllSync<Photo>(`
+                .getAllSync<Photo>(`
                 SELECT * 
                 FROM photos
                 WHERE id IN (${placeholders})
             `, rows.map((row : any) => row.rowid));
-            const photoap = new Map(photos.map(p => [p.id, p]));
 
-            return rows.map((row: any) => {
+            const photoMap = new Map();
+
+            photos.map(p => {
+                photoMap[p.id] = p;
+            });
+
+            const result = rows.map((row) => {
                 return {
-                    photo: photoMap.get(row.rowid),
+                    photo: photoMap[row.rowid],
                     similarity: 1 - row.distance
                 }
-            });
+            })
+
+            console.log(``, result)
+            return result;
+
+            //
+            // console.log(`rows`, photoMap)
+            //
+            // return rows.map((row: any) => {
+            //     return {
+            //         photo: photoMap.get(row.rowid),
+            //         similarity: 1 - row.distance
+            //     }
+            // });
         }
         finally
         {

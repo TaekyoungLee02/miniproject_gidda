@@ -38,16 +38,17 @@ export class ImageEncoder extends Session.ModelInferenceSession
 
         console.log(`image preprocessed. model run. batch size : `, preprocessed.length);
 
-        for (const i in uris)
+        for (const vector of preprocessed)
         {
             // concat Float32Array
-            const out = new Float32Array(inputs.length + preprocessed[i].length);
+            const out = new Float32Array(inputs.length + vector.length);
 
             out.set(inputs, 0);
-            out.set(preprocessed, inputs.length);
+            out.set(vector, inputs.length);
 
             inputs = out;
         }
+        console.log(`image vector concat : `, inputs.length);
         return await super.runAll(inputs, batchSize);
     }
 

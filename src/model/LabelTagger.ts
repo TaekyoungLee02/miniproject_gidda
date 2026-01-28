@@ -3,7 +3,7 @@ import { Asset } from 'expo-asset'
 import * as SQLite from 'expo-sqlite';
 import {Photo} from "@/src/lib/types/photo";
 
-const THRESHOLD_LABEL : number = 0.3;
+const THRESHOLD_LABEL : number = 1.25;
 
 export class LabelTagger
 {
@@ -45,6 +45,7 @@ export class LabelTagger
                     rowid
                 FROM vec_labels
                 WHERE embedding MATCH ? 
+                    AND distance < ?
                     AND k = 10
             `);
 
@@ -53,12 +54,12 @@ export class LabelTagger
                 for (const vector of imageVectors)
                 {
                     const rows = statement
-                        .executeSync([JSON.stringify(Array.from(vector))])
+                        .executeSync([JSON.stringify(Array.from(vector)), THRESHOLD_LABEL])
                         .getAllSync();
-
 
                     const placeholders = rows.map(() => "?").join(",");
                     const ids = rows.map((row) => row.rowid);
+
                     const results = this.db
                         .getAllSync<string>(`
                         SELECT label 
@@ -68,7 +69,7 @@ export class LabelTagger
 
                     const labels = results.map((result) => result.label)
 
-                    console.log(``, labels)
+                    // console.log(``, labels)
 
                     tags.push(labels)
                 }
@@ -79,6 +80,8 @@ export class LabelTagger
                 throw e;
             }
         });
+
+        console.log(`label tag finished.`)
 
         return tags;
     }

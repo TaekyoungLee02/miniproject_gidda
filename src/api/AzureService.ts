@@ -39,28 +39,26 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
     // });
 
     // 3. Axios는 결과를 response.data에 담아줍니다.
-    const data = response.data;
-    const result = data.choices?.[0]?.message?.content;
+    const data = response.data.resp as SearchAnalysisResult;
+    console.log(`here~ user query : `, data);
 
-    if (!result) return null;
+    if (!data) return null;
 
-    const parsed = JSON.parse(result);
-
-    return {
-      suitability: parsed.suitability,
-      // keywords: parsed.keywords,
-      entities: {
-        [SearchType.Context]: parsed.entities?.["0"] || [],
-        [SearchType.Time]: parsed.entities?.["1"] || [],
-        [SearchType.Space]: parsed.entities?.["2"] || [],
-      },
-      weights: {
-        [SearchType.Context]: parsed.weights?.["0"] || 0,
-        [SearchType.Time]: parsed.weights?.["1"] || 0,
-        [SearchType.Space]: parsed.weights?.["2"] || 0,
-      },
-      reason: parsed.reason
-    };
+    return data;
+    //
+    // return {
+    //   entities: {
+    //     [SearchType.Context]: data.entities["0"],
+    //     [SearchType.Time]: data.entities["1"],
+    //     [SearchType.Space]: data.entities["2"],
+    //   },
+    //   weights: {
+    //     [SearchType.Context]: data.entities["0"],
+    //     [SearchType.Time]: data.entities["1"],
+    //     [SearchType.Space]: data.entities["2"],
+    //   },
+    //   reason: data.reason
+    // };
   } catch (error: any) {
     // 1️⃣ 400 에러: 보안 필터 (오늘 지연 님을 괴롭힌 녀석)
     if (error.status === 400 && error.code === 'content_filter') {

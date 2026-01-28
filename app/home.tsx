@@ -57,12 +57,7 @@ export default function HomePage() {
                     pathname: '/searching' as any, 
                     params: { 
                         prompt: inputText,
-                        entities: JSON.stringify(analysisResult.entities),
-                        weights: JSON.stringify([
-                            analysisResult.weights["0"], 
-                            analysisResult.weights["1"], 
-                            analysisResult.weights["2"]
-                        ])
+                        result: analysisResult
                     }
                 });
             } 

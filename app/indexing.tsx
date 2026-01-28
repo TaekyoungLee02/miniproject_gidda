@@ -57,19 +57,22 @@ export default function IndexingPage() {
         const { status } = await MediaLibrary.requestPermissionsAsync();
 
         if (status !== 'granted') { router.replace('/'); return; }
-        const album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
+        let album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 }).then(m => m.assets);
 
         console.log(``, album)
 
         const service = PhotoDatabaseService.getInstance();
 
         const slideInterval = setInterval(() => {
-            slideIndex.current = (slideIndex.current + 1) % album.assets.length;
-            setCurrentPhoto(album.assets[slideIndex.current].uri);
+            slideIndex.current = (slideIndex.current + 1) % album.length;
+            setCurrentPhoto(album[slideIndex.current].uri);
         }, 600); // 사진 전환 속도
 
-        for await (const progress of service.savePhotosToDB())
+        for await (const { progress, assets } of service.savePhotosToDB())
         {
+            album = assets;
+            setProgress(progress * 100);
+
             if (progress >= 0.3) setStatusText('#여행의_기록');
             else if (progress >= 0.6) setStatusText('#맛있는_음식');
             else if (progress >= 0.9) setStatusText('#분석_마무리_중');

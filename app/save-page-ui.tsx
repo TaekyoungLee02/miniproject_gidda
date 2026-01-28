@@ -23,8 +23,8 @@ export default function SavePageUI() {
     const userPrompt = params.prompt as string || "";
 
     // 🔴 [수정] searching.tsx에서 넘어온 실제 검색 결과 데이터 파싱
-    const incomingPhotos: Photo[] = params.photos ? JSON.parse(params.photos as string) : [];
-    const incomingKeywords: string[] = params.keywords ? JSON.parse(params.keywords as string) : [];
+    const incomingPhotos: Photo[] = params.photos ? JSON.parse(params.photos) : [];
+    const incomingKeywords: string[] = params.keywords ? JSON.parse(params.keywords) : [];
 
     const [activeTags, setActiveTags] = useState<string[]>([]);
     const [sessions, setSessions] = useState<{ [key: string]: Photo[] }>({}); 
@@ -58,7 +58,7 @@ export default function SavePageUI() {
                 : [tagName];
             setActiveTags(tagsToShow);
         }
-    }, [params.photos]);
+    }, []);
 
     const showGiddaAlert = (title: string, message: string, onConfirm = () => { }) => {
         setAlertConfig({ title, message, onConfirm });
@@ -189,7 +189,7 @@ export default function SavePageUI() {
                             const isSelected = selectedPhotos.find(p => p.id === photo.id);
                             return (
                                 <TouchableOpacity key={photo.id} style={styles.photoWrap} onPress={() => toggleSelection(photo)}>
-                                    <Image source={{ uri: photo.uri }} style={styles.photo} contentFit="cover" />
+                                    <Image source={{ uri: photo.local_uri }} style={styles.photo} contentFit="cover" />
                                     {isSelected && <View style={styles.selectedOverlay} />}
                                     <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>{isSelected && <Check color="white" size={14} strokeWidth={4} />}</View>
                                 </TouchableOpacity>
