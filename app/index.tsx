@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Image, Modal, TouchableOpacity, Platform, Pressable, Dimensions, StyleSheet } from 'react-native';
+import { View, Text, Image, ActivityIndicator, Modal, TouchableOpacity, Platform, Pressable, Dimensions, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from 'react-native-reanimated';
 import { Asset } from 'expo-asset';
 import * as MediaLibrary from 'expo-media-library';
+// apk용 import
+import { initModel } from '../src/utils/modelService'; // 위에서 만든 파일 import
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +24,7 @@ const DEMO_SCENARIOS = [
   { id: 4, text: '"인스타로 캡쳐한 맛집 정보 좀."', src: PicInsta },
 ];
 
+// apk 용 코드를 함수에 추가했음
 export default function StartPage() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,6 +33,27 @@ export default function StartPage() {
   const loadedIdsRef = useRef<Record<number, boolean>>({});
   const loadingIdsRef = useRef<Set<number>>(new Set());
   const float = useSharedValue(0);
+
+  //apk 용 코드(AI 로딩 로직)
+  const [isModelReady, setIsModelReady] = useState(false); // 1. AI 로딩 상태 변수
+
+  useEffect(() => {
+    const loadAI = async () => {
+      try {
+        console.log("🚀 StartPage: AI 모델 로딩 시작");
+        await initModel(); // 모델 로딩 함수 호출
+        setIsModelReady(true); // 로딩 완료 체크
+        console.log("✅ StartPage: AI 모델 준비 완료");
+      } catch (e) {
+        console.error("❌ AI 모델 로딩 실패:", e);
+        // 에러 나도 앱이 죽지 않게 일단 true로 넘겨줄 수도 있음 (선택 사항)
+        setIsModelReady(true); 
+      }
+    };
+    
+    loadAI();
+  }, []); // 빈 배열 [] : 앱 켜질 때 딱 한 번 실행
+  // ----------------------------------------
 
   useEffect(() => {
     let isMounted = true;
@@ -98,6 +122,41 @@ export default function StartPage() {
       router.push('/indexing');
     }
   };
+
+  // apk 용 코드 추가
+  if (!isModelReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FFFCF5' }} className="items-center px-6">
+        {/* 상태바 색상 맞춤 */}
+        <StatusBar style="dark" />
+
+        {/* 1. 상단 로고 (메인 화면과 위치 동일하게 유지하여 위화감 제거) */}
+        <View className="items-center w-full mt-40"> 
+          <Image
+            source={GiddaLogoBucket}
+            style={styles.logoBucket}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandName}>GIDDA</Text>
+          <Text style={styles.tagline}>
+            AI 모델을 초기화하고 있습니다.
+          </Text>
+        </View>
+
+        {/* 2. 중앙 로딩 인디케이터 */}
+        <View className="items-center justify-center w-full mt-16">
+          {/* 브랜드 컬러인 오렌지색(#F38A2C) 사용 */}
+          <ActivityIndicator size="large" color="#F38A2C" /> 
+          
+          <Text style={[styles.promptText, { marginTop: 24, fontSize: 16, color: '#888' }]}>
+            당신의 기억을 긷기 위해{"\n"}
+            AI가 뇌를 깨우는 중이에요... 🧠
+          </Text>
+        </View>
+      </View>
+    );
+  }
+  // ----------------------------------------
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFCF5' }} className="items-center px-6">

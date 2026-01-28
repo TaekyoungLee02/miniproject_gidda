@@ -42,8 +42,7 @@
       ],
       "expo-asset",
       "onnxruntime-react-native",
-      ["expo-sqlite", { "withSQLiteVecExtension": true }],
-      "expo-asset"
+      ["expo-sqlite", { "withSQLiteVecExtension": true }]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,0 +1,4 @@
+/node_modules
+/functions       <-- 이거 추가! (소스 코드조차 서버로 안 보내버림)
+.git
+*.env
