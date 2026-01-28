@@ -461,6 +461,41 @@ export const toggleFavorite = async (photoId: string): Promise<boolean> => {
 };
 
 /**
+ * 🆕 [추가] 여러 장의 사진을 '즐겨찾기' 앨범에 한 번에 저장 (Bulk Save)
+ * (이미 저장된 사진은 무시하고, 없는 사진만 추가합니다)
+ */
+export const savePhotosToFavorite = async (photoIds: string[]): Promise<void> => {
+  try {
+    // 1. '즐겨찾기' 앨범 ID 찾기
+    // getFirstAsync가 없으면 getFirstSync를 써도 됩니다. 여기선 비동기로 처리.
+    // 만약 db.getFirstAsync가 에러나면 db.getAllAsync(...)로 대체 가능합니다.
+    let album = await db.getFirstAsync<{id: number}>("SELECT id FROM albums WHERE title = '즐겨찾기'");
+    
+    if (!album) {
+        // 혹시 앨범이 없으면 자동으로 생성해주는 센스! (선택 사항)
+        console.error("❌ 즐겨찾기 앨범이 없어 저장할 수 없습니다.");
+        return;
+    }
+
+    // 2. 반복문으로 대량 저장 (INSERT OR IGNORE 사용)
+    // INSERT OR IGNORE: 이미 들어있으면 에러 안 내고 그냥 넘어감 (가장 안전)
+    await Promise.all(
+      photoIds.map(photoId => 
+        db.runAsync(
+          `INSERT OR IGNORE INTO album_photos (album_id, photo_id) VALUES (?, ?)`,
+          [album.id, photoId]
+        )
+      )
+    );
+
+    console.log(`💾 [DB] 즐겨찾기에 사진 ${photoIds.length}장 저장 시도 완료.`);
+  } catch (error) {
+    console.error("❌ [DB] 즐겨찾기 대량 저장 실패:", error);
+    throw error;
+  }
+};
+
+/**
  * ⭐️ 즐겨찾기 앨범에 등록된 모든 사진 가져오기
  * 작성자: 차명근 (백엔드/DB 담당)
  */

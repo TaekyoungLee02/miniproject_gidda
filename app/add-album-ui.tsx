@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, Alert, AlertButton, Modal, TextInput } from 'react-native'; // 🛠️ [수정] AlertButton 타입 추가
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -55,14 +55,31 @@ export default function AddAlbumUIPage() {
 
             const titles = await generateAlbumTitles(hints);
 
+            // 🛠️ [수정] Alert 버튼 타입 오류 해결
+            // 배열을 합칠 때 타입을 명시적으로 지정하여 TypeScript 오류 방지
+            const buttons: AlertButton[] = [
+                ...titles.map(t => ({
+                    text: t,
+                    onPress: () => setNewAlbumTitle(t)
+                })),
+                { text: "취소", style: "cancel" }
+            ];
+
+            // Alert.alert(
+            //     "✨ AI 감성 추천",
+            //     "이런 제목들은 어떠세요?",
+            //     titles.map(t => ({
+            //         text: t,
+            //         onPress: () => setNewAlbumTitle(t)
+            //     })).concat([{ text: "취소", style: "cancel" }])
+            // );
+
             Alert.alert(
                 "✨ AI 감성 추천",
                 "이런 제목들은 어떠세요?",
-                titles.map(t => ({
-                    text: t,
-                    onPress: () => setNewAlbumTitle(t)
-                })).concat([{ text: "취소", style: "cancel" }])
+                buttons
             );
+
         } catch (error) {
             Alert.alert("오류", "AI가 제목을 짓는 데 실패했어요.");
         } finally {
@@ -129,7 +146,12 @@ export default function AddAlbumUIPage() {
                             <View style={styles.albumInfo}>
                                 <View>
                                     <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
-                                    <Text style={styles.albumSub}>{album.date} • {album.count}장</Text>
+                                    {/* 🛠️ [수정] album.date 속성 오류 해결
+                                        AlbumSummary 타입에 date가 없으므로 일단 제거하거나,
+                                        DB에서 생성일(created_at)을 가져온다면 그 필드명으로 바꿔야 합니다.
+                                        일단은 'count'만 표시하도록 수정했습니다. */}
+                                    <Text style={styles.albumSub}>{album.count}장의 추억</Text>
+                   
                                 </View>
                                 {/* Home 사이드바와 유사한 인디케이터 추가 */}
                                 <Play color="#F38A2C" size={14} fill="#F38A2C" style={{ opacity: 0.6 }} />
@@ -144,6 +166,12 @@ export default function AddAlbumUIPage() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFFCF5' },
+    // 🛠️ [수정] 누락되었던 center 스타일 추가
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',

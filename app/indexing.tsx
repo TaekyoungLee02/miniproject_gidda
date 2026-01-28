@@ -57,6 +57,8 @@ export default function IndexingPage() {
         const { status } = await MediaLibrary.requestPermissionsAsync();
 
         if (status !== 'granted') { router.replace('/'); return; }
+
+        // 초기 50장 로드
         let album = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 }).then(m => m.assets);
 
         console.log(``, album)
@@ -64,22 +66,53 @@ export default function IndexingPage() {
         const service = PhotoDatabaseService.getInstance();
 
         const slideInterval = setInterval(() => {
-            slideIndex.current = (slideIndex.current + 1) % album.length;
-            setCurrentPhoto(album[slideIndex.current].uri);
-        }, 600); // 사진 전환 속도
+            // 방어 코드: album이 비어있으면 에러 나니까 체크
+            if (album && album.length > 0) {
+                slideIndex.current = (slideIndex.current + 1) % album.length;
+                setCurrentPhoto(album[slideIndex.current].uri);
+            }
+        }, 600);
 
-        for await (const { progress, assets } of service.savePhotosToDB())
-        {
-            album = assets;
-            setProgress(progress * 100);
+        // 유저테스트 용 변수
+        let totalProcessedCount = 0; 
+        const TEST_LIMIT = 500; // 500장 제한
 
-            if (progress >= 0.3) setStatusText('#여행의_기록');
-            else if (progress >= 0.6) setStatusText('#맛있는_음식');
-            else if (progress >= 0.9) setStatusText('#분석_마무리_중');
+
+       try {
+            // DB 저장 프로세스 시작
+            for await (const { progress, assets } of service.savePhotosToDB()) {
+                
+                // 1️⃣ 슬라이드 쇼 갱신 (새로운 배치로 교체)
+                // assets가 비어있지 않을 때만 교체해서 빈 화면 방지
+                if (assets && assets.length > 0) {
+                     album = assets; 
+                     // 배치 사이즈만큼 카운트 증가 (정확하지 않아도 대략적인 제어 가능)
+                     totalProcessedCount += assets.length; 
+                }
+                
+                // 2️⃣ 프로그레스 업데이트
+                // 500장을 100%로 보기 위해 계산식 살짝 수정 (테스트용)
+                // 원래: setProgress(progress * 100);
+                const testProgress = Math.min((totalProcessedCount / TEST_LIMIT) * 100, 100);
+                setProgress(testProgress);
+
+                // 3️⃣ 멘트 변경
+                if (testProgress >= 30) setStatusText('#여행의_기록');
+                if (testProgress >= 60) setStatusText('#맛있는_음식');
+                if (testProgress >= 90) setStatusText('#분석_마무리_중');
+
+                // 🛑 [핵심] 500장이 넘어가면 강제 종료!
+                if (totalProcessedCount >= TEST_LIMIT) {
+                    console.log(`🧪 테스트 제한(${TEST_LIMIT}장) 도달! 분석을 조기 종료합니다.`);
+                    break; // 여기서 루프를 깨면 Generator도 멈춥니다.
+                }
+            }
+        } catch (e) {
+            console.error("Indexing Error:", e);
+        } finally {
+            clearInterval(slideInterval);
+            router.replace('/welcome');
         }
-
-        clearInterval(slideInterval);
-        router.replace('/welcome');
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({

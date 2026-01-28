@@ -112,7 +112,7 @@ export default function AlbumDetailUIPage() {
                                         onPress={() => toggleSelect(photo.id)}
                                     >
                                         <Image
-                                            source={{ uri: photo.uri }}
+                                            source={{ uri: photo.local_uri }}
                                             style={styles.image}
                                             contentFit="cover"
                                         />
@@ -226,5 +226,17 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#BBB',
         fontFamily: 'Pretendard-Regular'
+    },
+    // 🆕 [추가] 누락되었던 로딩 관련 스타일 추가
+    loaderContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 50
+    },
+    loadingText: {
+        marginTop: 10,
+        fontFamily: 'Pretendard-Medium',
+        color: '#F38A2C'
     }
 });

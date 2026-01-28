@@ -9,6 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Menu, X, Save, FolderPlus, Bot, Check, Play, Plus, MessageCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { PhotoDatabaseService } from "@/src/services/PhotoDatabaseService";
+import { createAlbum, addPhotosToAlbum, savePhotosToFavorite } from '../src/db/database';
 
 // 🔴 [백엔드] Photo 타입 및 서비스 임포트
 import { Photo } from '../src/lib/types';
@@ -23,8 +25,8 @@ export default function SavePageUI() {
     const userPrompt = params.prompt as string || "";
 
     // 🔴 [수정] searching.tsx에서 넘어온 실제 검색 결과 데이터 파싱
-    const incomingPhotos: Photo[] = params.photos ? JSON.parse(params.photos) : [];
-    const incomingKeywords: string[] = params.keywords ? JSON.parse(params.keywords) : [];
+    const incomingPhotos: Photo[] = params.photos ? JSON.parse(params.photos as string) : [];
+    const incomingKeywords: string[] = params.keywords ? JSON.parse(params.keywords as string) : [];
 
     const [activeTags, setActiveTags] = useState<string[]>([]);
     const [sessions, setSessions] = useState<{ [key: string]: Photo[] }>({}); 
@@ -107,10 +109,24 @@ export default function SavePageUI() {
 
     const handleSavePhotos = async () => {
         if (selectedPhotos.length === 0) return showGiddaAlert("알림", "저장할 사진을 선택해주세요.");
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        showGiddaAlert("저장 완료", "선택한 사진이 '사진 저장'함으로 이동되었습니다.", () => {
-            router.push('/add-photo');
-        });
+
+        try {
+            const selectedIds = selectedPhotos.map(p => p.id);
+            
+            // 🆕 [연결] 토글이 아니라 '무조건 저장'하는 함수 호출
+            await savePhotosToFavorite(selectedIds);
+
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            
+            showGiddaAlert("저장 완료", "선택한 사진이 '즐겨찾기' 앨범에 저장되었습니다.", () => {
+                setSelectedPhotos([]);
+                router.push('/add-photo'); 
+            });
+
+        } catch (error) {
+            console.error(error);
+            showGiddaAlert("오류", "사진 저장 중 문제가 발생했습니다.");
+        }
     };
 
     const handleCreateAlbumAI = async () => {
