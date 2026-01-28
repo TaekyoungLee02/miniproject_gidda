@@ -17,11 +17,23 @@ export default function AddPhotoUIPage() {
     const [savedPhotos, setSavedPhotos] = useState<MediaLibrary.Asset[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-    useEffect(() => { loadPhotos(); }, []);
+    useEffect(() => {
+        loadPhotos();
+    }, []);
 
+    // ✅ 백엔드/기기 데이터 로드 로직
     const loadPhotos = async () => {
         try {
-            const { assets } = await MediaLibrary.getAssetsAsync({ first: 18, sortBy: ['creationTime'] });
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert("권한 필요", "사진에 접근하기 위해 권한이 필요합니다.");
+                return;
+            }
+            // 최신순으로 18장 로드 (숫자는 필요에 따라 조절)
+            const { assets } = await MediaLibrary.getAssetsAsync({
+                first: 18,
+                sortBy: ['creationTime']
+            });
             setSavedPhotos(assets);
         } catch (error) {
             console.error("사진 로딩 에러:", error);

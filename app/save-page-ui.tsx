@@ -8,8 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { Menu, X, Save, FolderPlus, Bot, Check, Play, Plus, MessageCircle } from 'lucide-react-native';
-import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
+
+// 🔴 [백엔드] Photo 타입 및 서비스 임포트
+import { Photo } from '../src/lib/types';
 
 const { width, height } = Dimensions.get('window');
 const COLUMN_COUNT = 3;
@@ -20,29 +22,43 @@ export default function SavePageUI() {
     const params = useLocalSearchParams();
     const userPrompt = params.prompt as string || "";
 
+    // 🔴 [수정] searching.tsx에서 넘어온 실제 검색 결과 데이터 파싱
+    const incomingPhotos: Photo[] = params.photos ? JSON.parse(params.photos as string) : [];
+    const incomingKeywords: string[] = params.keywords ? JSON.parse(params.keywords as string) : [];
+
     const [activeTags, setActiveTags] = useState<string[]>([]);
-    const [sessions, setSessions] = useState<{ [key: string]: MediaLibrary.Asset[] }>({});
+    const [sessions, setSessions] = useState<{ [key: string]: Photo[] }>({}); 
     const [currentTagName, setCurrentTagName] = useState<string>("");
-    const [photos, setPhotos] = useState<MediaLibrary.Asset[]>([]);
-    const [selectedPhotos, setSelectedPhotos] = useState<MediaLibrary.Asset[]>([]);
+    const [photos, setPhotos] = useState<Photo[]>([]);
+    const [selectedPhotos, setSelectedPhotos] = useState<Photo[]>([]);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isLoadingAI, setIsLoadingAI] = useState(false);
-    const [isAiSheetVisible, setIsAiSheetVisible] = useState(false);
 
     const [alertVisible, setAlertVisible] = useState(false);
     const [alertConfig, setAlertConfig] = useState({ title: '', message: '', onConfirm: () => { } });
 
     const slideAnim = useRef(new Animated.Value(-width * 0.7)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
-    const sheetAnim = useRef(new Animated.Value(height)).current;
-
-    // 로고 클릭 애니메이션용 Value
     const logoScale = useRef(new Animated.Value(1)).current;
 
+    // 🔴 [데이터 이식] 진입 시 검색 결과와 키워드 세팅
     useEffect(() => {
-        if (userPrompt) handleNewSearchSession(userPrompt);
-    }, [userPrompt]);
+        if (incomingPhotos.length > 0) {
+            const tagName = userPrompt || "검색 결과";
+            
+            // 세션 데이터 저장
+            setSessions(prev => ({ ...prev, [tagName]: incomingPhotos }));
+            setCurrentTagName(tagName);
+            setPhotos(incomingPhotos);
+            
+            // 상단 태그 바: 넘어온 키워드들 표시
+            const tagsToShow = incomingKeywords.length > 0 
+                ? incomingKeywords.map((k: string) => k.replace('#', '')) 
+                : [tagName];
+            setActiveTags(tagsToShow);
+        }
+    }, [params.photos]);
 
     const showGiddaAlert = (title: string, message: string, onConfirm = () => { }) => {
         setAlertConfig({ title, message, onConfirm });
@@ -52,17 +68,9 @@ export default function SavePageUI() {
     const handleTagPress = async (tag: string) => {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCurrentTagName(tag);
-        setPhotos(sessions[tag] || []);
+        // 해당 태그에 맞는 사진 세션 로드 (없으면 기본 검색결과)
+        setPhotos(sessions[tag] || incomingPhotos);
         setSelectedPhotos([]);
-    };
-
-    const handleNewSearchSession = async (tagName: string) => {
-        setActiveTags(prev => [tagName, ...prev.filter(t => t !== tagName)].slice(0, 5));
-        const { assets } = await MediaLibrary.getAssetsAsync({ first: 50, sortBy: ['creationTime'] });
-        const filtered = assets.filter((_, i) => (i + tagName.length) % 2 === 0);
-        setSessions(prev => ({ ...prev, [tagName]: filtered }));
-        setCurrentTagName(tagName);
-        setPhotos(filtered);
     };
 
     const toggleSidebar = () => {
@@ -117,7 +125,7 @@ export default function SavePageUI() {
         }, 2000);
     };
 
-    const toggleSelection = (photo: MediaLibrary.Asset) => {
+    const toggleSelection = (photo: Photo) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const isSelected = selectedPhotos.find(p => p.id === photo.id);
         setSelectedPhotos(isSelected ? selectedPhotos.filter(p => p.id !== photo.id) : [...selectedPhotos, photo]);
@@ -152,15 +160,15 @@ export default function SavePageUI() {
                         <Pressable onPress={handleLogoPress}>
                             <Animated.Text style={[styles.logoText, { transform: [{ scale: logoScale }] }]}>
                                 GIDDA
-                            </Animated.Text>
+                                </Animated.Text>
                         </Pressable>
 
                         {/* ✅ 디자인 개선된 + 버튼: 크림색 둥근 네모 배경 추가 */}
-                        <TouchableOpacity
+                        <TouchableOpacity 
                             onPress={handlePlusPress}
                             style={styles.plusButtonContainer}
                             activeOpacity={0.7}
-                        >
+                         >
                             <Plus color="#F38A2C" size={24} strokeWidth={3} />
                         </TouchableOpacity>
                     </View>
@@ -194,7 +202,7 @@ export default function SavePageUI() {
                     <View style={styles.actionArea}>
                         <TouchableOpacity style={styles.mainActionBtn} onPress={handleSavePhotos}><Save color="#F38A2C" size={28} /><Text style={styles.actionLabel}>사진 저장</Text></TouchableOpacity>
                         <TouchableOpacity style={styles.mainActionBtn} onPress={handleCreateAlbumAI}><FolderPlus color="#F38A2C" size={28} /><Text style={styles.actionLabel}>앨범 저장</Text></TouchableOpacity>
-                        <TouchableOpacity style={styles.mainActionBtn} onPress={() => { setIsAiSheetVisible(true); Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true }).start(); }}><Bot color="#F38A2C" size={28} /><Text style={styles.actionLabel}>AI</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.mainActionBtn}><Bot color="#F38A2C" size={28} /><Text style={styles.actionLabel}>AI</Text></TouchableOpacity>
                         <TouchableOpacity style={styles.kakaoActionBtn}>
                             <MessageCircle color="black" fill="#FEE500" size={28} />
                             <Text style={[styles.actionLabel, { color: '#333' }]}>카톡 공유</Text>

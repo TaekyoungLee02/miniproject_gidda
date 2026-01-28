@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, Share, Alert
+    View, Text, TouchableOpacity, ScrollView, Dimensions, StyleSheet, Share, Alert, ActivityIndicator
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ArrowLeft, Share2, Sparkles, Check } from 'lucide-react-native';
-import * as MediaLibrary from 'expo-media-library';
+
+// ✅ [연결] 명근님 DB 함수 및 타입 복구 bjy
+import { getPhotosByAlbum } from '../src/db/database';
+import { Photo } from '../src/lib/types/photo';
 
 const { width } = Dimensions.get('window');
 // ✅ 가로 3열 규격을 위한 보수적 계산 (패딩 48 제외 후 미세 여백 추가 차감)
@@ -15,35 +18,43 @@ const ITEM_SIZE = (width - 48) / COLUMN - 5;
 
 export default function AlbumDetailUIPage() {
     const router = useRouter();
+    // ✅ 이전 화면에서 넘겨준 파라미터 받기 (albumId, title)
     const { title, albumId } = useLocalSearchParams();
-    const [albumPhotos, setAlbumPhotos] = useState<MediaLibrary.Asset[]>([]);
+
+    const [albumPhotos, setAlbumPhotos] = useState<Photo[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        loadAlbumPhotos();
+        if (albumId) {
+            loadAlbumPhotos();
+        }
     }, [albumId]);
 
+    // 📥 1. DB에서 해당 앨범에 속한 사진 가져오기 (Done 버전 로직) bjy
     const loadAlbumPhotos = async () => {
+        setIsLoading(true);
         try {
-            // UI 확인용 더미 데이터 로딩 (백엔드 연동 시 이 부분을 API 호출로 교체)
-            const { assets } = await MediaLibrary.getAssetsAsync({
-                first: 12,
-                sortBy: ['creationTime']
-            });
-            setAlbumPhotos(assets);
+            // albumId 타입 체크 및 변환
+            const id = Array.isArray(albumId) ? parseInt(albumId[0]) : parseInt(albumId as string);
+            const photos = await getPhotosByAlbum(id);
+            setAlbumPhotos(photos);
         } catch (error) {
-            console.error("사진 로드 에러:", error);
+            console.error("앨범 사진 로드 에러:", error);
+            Alert.alert("오류", "사진을 불러오는 중 문제가 발생했습니다.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    // 사진 선택/해제 토글
+    // 🔄 2. 사진 선택 토글
     const toggleSelect = (id: string) => {
         setSelectedIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
 
-    // 선택된 사진 공유 기능
+    // 📤 3. 선택된 사진 공유 (시스템 공유창 활용)
     const onShareSelected = async () => {
         if (selectedIds.length === 0) {
             return Alert.alert("알림", "공유할 사진을 먼저 선택해주세요.");
@@ -67,7 +78,7 @@ export default function AlbumDetailUIPage() {
                 <View style={styles.titleContainer}>
                     <Sparkles size={18} color="#F38A2C" fill="#F38A2C" />
                     <Text style={styles.headerTitle} numberOfLines={1}>
-                        {title || "맛있는 디저트"}
+                        {title || "앨범 상세"}
                     </Text>
                 </View>
                 <TouchableOpacity onPress={onShareSelected}>
@@ -79,40 +90,47 @@ export default function AlbumDetailUIPage() {
                 {/* --- 2. 상단 인포 박스 (AI 분석 강조) --- */}
                 <View style={styles.infoBox}>
                     <Text style={styles.infoText}>AI가 분석한 이 앨범의 테마는</Text>
-                    <Text style={styles.themeText}>"{title || "맛있는 디저트"}" 입니다.</Text>
+                    <Text style={styles.themeText}>"{title}" 입니다.</Text>
                 </View>
 
                 {/* --- 3. 3열 사진 그리드 --- */}
-                <View style={styles.photoGrid}>
-                    {albumPhotos.length > 0 ? (
-                        albumPhotos.map((photo) => {
-                            const isSelected = selectedIds.includes(photo.id);
-                            return (
-                                <TouchableOpacity
-                                    key={photo.id}
-                                    style={styles.photoItem}
-                                    activeOpacity={0.8}
-                                    onPress={() => toggleSelect(photo.id)}
-                                >
-                                    <Image
-                                        source={{ uri: photo.uri }}
-                                        style={styles.image}
-                                        contentFit="cover"
-                                    />
-                                    {/* 선택 시 오렌지 오버레이 및 체크 표시 */}
-                                    {isSelected && <View style={styles.selectedOverlay} />}
-                                    <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>
-                                        {isSelected && <Check color="white" size={10} strokeWidth={4} />}
-                                    </View>
-                                </TouchableOpacity>
-                            )
-                        })
-                    ) : (
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>분석된 사진을 가져오는 중입니다...</Text>
-                        </View>
-                    )}
-                </View>
+                {isLoading ? (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color="#F38A2C" />
+                        <Text style={styles.loadingText}>사진을 불러오고 있어요...</Text>
+                    </View>
+                ) : (
+                    <View style={styles.photoGrid}>
+                        {albumPhotos.length > 0 ? (
+                            albumPhotos.map((photo) => {
+                                const isSelected = selectedIds.includes(photo.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={photo.id}
+                                        style={styles.photoItem}
+                                        activeOpacity={0.8}
+                                        onPress={() => toggleSelect(photo.id)}
+                                    >
+                                        <Image
+                                            source={{ uri: photo.uri }}
+                                            style={styles.image}
+                                            contentFit="cover"
+                                        />
+                                        {/* 선택 시 오렌지 오버레이 및 체크 표시 */}
+                                        {isSelected && <View style={styles.selectedOverlay} />}
+                                        <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>
+                                            {isSelected && <Check color="white" size={10} strokeWidth={4} />}
+                                        </View>
+                                    </TouchableOpacity>
+                                )
+                            })
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>분석된 사진을 가져오는 중입니다...</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );

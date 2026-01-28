@@ -1,32 +1,90 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { ArrowLeft, Folder, Play } from 'lucide-react-native';
-import * as MediaLibrary from 'expo-media-library';
+import { ArrowLeft, Folder, Play, Plus, Sparkles, X } from 'lucide-react-native';
+
+// ✅ [연결] 백엔드 DB 함수 및 인터페이스 통합
+import { getAlbums, createAlbum, AlbumSummary, getAllPhotos } from '../src/db/database';
+// ✅ [연결] AI 제목 생성 서비스 통합
+import { generateAlbumTitles } from '../src/api/AzureService';
 
 const { width } = Dimensions.get('window');
 
 export default function AddAlbumUIPage() {
     const router = useRouter();
-    const [albums, setAlbums] = useState<any[]>([]);
+
+    // 상태 관리 (Done 버전의 핵심 로직)
+    const [albums, setAlbums] = useState<AlbumSummary[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // 새 앨범 생성 모달 관련 상태
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [newAlbumTitle, setNewAlbumTitle] = useState("");
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         loadAlbumData();
     }, []);
 
+    // 1. DB에서 실제 앨범 목록 로드
     const loadAlbumData = async () => {
-        // 실제 운영 시 DB의 생성된 앨범 목록을 가져와야 함
-        // 현재는 UI 확인을 위해 기기 내 앨범 썸네일을 매칭한 더미 데이터를 사용합니다.
-        const { assets } = await MediaLibrary.getAssetsAsync({ first: 3 });
+        setIsLoading(true);
+        try {
+            const data = await getAlbums();
+            setAlbums(data);
+        } catch (error) {
+            console.error("앨범 로딩 에러:", error);
+            Alert.alert("오류", "앨범 목록을 불러오지 못했습니다.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-        const dummyData = [
-            { id: '1', title: '강아지랑 산책', count: 12, date: '2026.01.24', thumb: assets[0]?.uri },
-            { id: '2', title: '제주도 푸른 밤', count: 45, date: '2026.01.20', thumb: assets[1]?.uri },
-            { id: '3', title: '맛있는 디저트', count: 8, date: '2026.01.15', thumb: assets[2]?.uri },
-        ];
-        setAlbums(dummyData);
+    // ✨ 2. AI 제목 추천 로직 (Azure 연동)
+    const handleAiRecommend = async () => {
+        setIsGenerating(true);
+        try {
+            const allPhotos = await getAllPhotos();
+            const hints = allPhotos.slice(0, 10).map(p => `[${p.address || ''}] ${p.ai_tags || ''}`).join(', ');
+
+            if (!hints) {
+                return Alert.alert("알림", "분석할 사진 데이터가 부족해요!");
+            }
+
+            const titles = await generateAlbumTitles(hints);
+
+            Alert.alert(
+                "✨ AI 감성 추천",
+                "이런 제목들은 어떠세요?",
+                titles.map(t => ({
+                    text: t,
+                    onPress: () => setNewAlbumTitle(t)
+                })).concat([{ text: "취소", style: "cancel" }])
+            );
+        } catch (error) {
+            Alert.alert("오류", "AI가 제목을 짓는 데 실패했어요.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // 💾 3. DB에 앨범 저장
+    const handleSaveAlbum = async () => {
+        if (!newAlbumTitle.trim()) return Alert.alert("알림", "제목을 입력해주세요.");
+
+        try {
+            const resultId = await createAlbum(newAlbumTitle);
+            if (resultId) {
+                setIsModalVisible(false);
+                setNewAlbumTitle("");
+                loadAlbumData(); // 목록 새로고침
+                Alert.alert("완료", "새로운 추억 저장소가 생겼어요! 🎉");
+            }
+        } catch (error) {
+            Alert.alert("오류", "앨범 생성에 실패했습니다.");
+        }
     };
 
     return (
@@ -40,40 +98,46 @@ export default function AddAlbumUIPage() {
                 <View style={{ width: 28 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.list}>
-                {albums.map((album) => (
-                    <TouchableOpacity
-                        key={album.id}
-                        style={styles.albumCard}
-                        activeOpacity={0.8}
-                        onPress={() => router.push({
-                            pathname: '/album-detail-ui', // 👈 여기를 새로 만든 파일명으로!
-                            params: { title: album.title, albumId: album.id }
-                        })}
-                    >
-                        {/* ✅ 앨범 썸네일 (아이콘 대신 실제 사진 배치) */}
-                        <View style={styles.albumThumbBox}>
-                            {album.thumb ? (
-                                <Image source={{ uri: album.thumb }} style={styles.thumbImage} contentFit="cover" />
-                            ) : (
-                                <View style={styles.fallbackIcon}><Folder color="white" size={24} /></View>
-                            )}
-                            <View style={styles.overlayTag}>
-                                <Folder color="white" size={12} fill="white" />
+            {isLoading ? (
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color="#F38A2C" />
+                </View>
+            ) : (
+                <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+                    {albums.map((album) => (
+                        <TouchableOpacity
+                            key={album.id}
+                            style={styles.albumCard}
+                            activeOpacity={0.8}
+                            onPress={() => router.push({
+                                pathname: '/album-detail-ui',
+                                params: { title: album.title, albumId: album.id.toString() }
+                            })}
+                        >
+                            {/* ✅ 앨범 썸네일 (아이콘 대신 실제 사진 배치) */}
+                            <View style={styles.albumThumbBox}>
+                                {album.cover_uri ? (
+                                    <Image source={{ uri: album.cover_uri }} style={styles.thumbImage} contentFit="cover" transition={200} />
+                                ) : (
+                                    <View style={styles.fallbackIcon}><Folder color="white" size={24} /></View>
+                                )}
+                                <View style={styles.overlayTag}>
+                                    <Folder color="white" size={12} fill="white" />
+                                </View>
                             </View>
-                        </View>
 
-                        <View style={styles.albumInfo}>
-                            <View>
-                                <Text style={styles.albumTitle}>{album.title}</Text>
-                                <Text style={styles.albumSub}>{album.date} • {album.count}장</Text>
+                            <View style={styles.albumInfo}>
+                                <View>
+                                    <Text style={styles.albumTitle} numberOfLines={1}>{album.title}</Text>
+                                    <Text style={styles.albumSub}>{album.date} • {album.count}장</Text>
+                                </View>
+                                {/* Home 사이드바와 유사한 인디케이터 추가 */}
+                                <Play color="#F38A2C" size={14} fill="#F38A2C" style={{ opacity: 0.6 }} />
                             </View>
-                            {/* Home 사이드바와 유사한 인디케이터 추가 */}
-                            <Play color="#F38A2C" size={14} fill="#F38A2C" style={{ opacity: 0.6 }} />
-                        </View>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            )}
         </SafeAreaView>
     );
 }
