@@ -9,6 +9,7 @@ import { Menu, Sprout } from 'lucide-react-native'; // Sprout를 양동이 대�
 import Animated, {
     FadeIn, useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing
 } from 'react-native-reanimated';
+import { Photo } from '@/src/lib/types/photo';
 
 // 🔴 [연결] 백엔드 및 서비스 함수 임포트
 import { SearchType } from '../src/lib/enums/enums';
@@ -35,10 +36,20 @@ const TypingText = ({ text, style }: { text: string, style: any }) => {
 export default function SearchingPage() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    
+
+    const jsonResult = params.result as string;
+    const userPrompt = params.prompt as string || "추억";
+
+    // 🆕 [수정] null 체크 및 타입 단언을 한 번에 처리
+    const searchResult: SearchAnalysisResult | null = jsonResult 
+        ? JSON.parse(jsonResult) 
+        : null;
+
+    const analysisResult = jsonResult ? JSON.parse(jsonResult) : null;
+    console.log(analysisResult);
     // Home에서 넘어온 데이터들
-    const userPrompt = params.prompt || "추억";
-    const searchResult = JSON.parse(params.result) as SearchAnalysisResult;
+    
+    //const searchResult = JSON.parse(params.result as string) as SearchAnalysisResult;
 
     const [currentPhoto, setCurrentPhoto] = useState<string | null>(null);
     const [extractedKeywords, setExtractedKeywords] = useState<string[]>([]);
@@ -64,6 +75,13 @@ export default function SearchingPage() {
     }, []);
 
     const processSearchAndNavigation = async () => {
+        // 🆕 [추가] 분석 결과가 없으면 로직 중단 (에러 방지)
+        if (!searchResult) {
+            console.error("분석 결과(searchResult)가 없습니다.");
+            router.back();
+            return;
+        }
+
         // 1. 갤러리 이미지 셔플 애니메이션 시작
         const assets = await MediaLibrary.getAssetsAsync({ mediaType: 'photo', first: 50 });
         let shuffleInterval: any;
@@ -81,11 +99,26 @@ export default function SearchingPage() {
             const weights = searchResult.weights;
 
             // Context, Time, Space 단어 합치기
+            // 🆕 [수정] undefined일 경우를 대비해 빈 배열([]) 처리 추가 (안전성 확보)
+            // '0', '1', '2'는 Enum(Context, Time, Space)에 해당한다고 가정
             const allWords = [
-                ...(entities["0"]),
-                ...(entities["1"]),
-                ...(entities["2"])
+                ...(entities["0"] || []), 
+                ...(entities["1"] || []),
+                ...(entities["2"] || [])
             ];
+
+            // 🆕 [추가] 가중치(Weights)도 키워드 개수에 맞춰서 쭉 펼쳐줘야 함! (Flatten)
+            // 예: '여행'(Context) 관련 단어가 3개면, Context 가중치도 3번 반복해서 배열에 넣음
+            const allWeights = [
+            ...Array(entities["0"]?.length || 0).fill(weights["0"] ?? 1), // Context 가중치 반복
+            ...Array(entities["1"]?.length || 0).fill(weights["1"] ?? 1), // Time 가중치 반복
+            ...Array(entities["2"]?.length || 0).fill(weights["2"] ?? 1), // Space 가중치 반복
+            ];
+            // const allWords = [
+            //     ...(entities["0"]),
+            //     ...(entities["1"]),
+            //     ...(entities["2"])
+            // ];
             keywordList = allWords.map(word => `#${word}`);
 
             // 화면에 키워드 순차적 표시
@@ -95,7 +128,12 @@ export default function SearchingPage() {
 
             // 3. 🔴 [백엔드 실시간 검색]
             const service = PhotoDatabaseService.getInstance();
-            const searchPromise = service.searchPhoto(entities, weights);
+
+            // 🆕 [수정] 펼쳐진 단어(allWords)와 펼쳐진 가중치(allWeights)를 전달!
+            // 만약 여기서도 빨간줄이 뜨면서 'number[]'가 아니라 'string[]'을 원한다고 하면
+            // PhotoDatabaseService.ts 파일의 searchPhoto 정의를 확인해야 합니다. (아마 number[]가 맞을 겁니다)
+            const searchPromise = service.searchPhoto(allWords, allWeights);
+            // const searchPromise = service.searchPhoto(entities, weights);
 
             // 최소 애니메이션 시간(4.5초) 보장하면서 검색 수행
             const [searchResults] = await Promise.all([
@@ -103,6 +141,7 @@ export default function SearchingPage() {
                 new Promise((r) => setTimeout(r, 4500)),
             ]);
 
+            
             const searchPhotos = searchResults.map((value) => value.photo as Photo);
 
             if (shuffleInterval) clearInterval(shuffleInterval);
@@ -125,7 +164,7 @@ export default function SearchingPage() {
     };
 
     const animatedBucketStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: bucketY.value }, { rotate: `${bucketRotate.value}deg` }]
+        transform: [{ translateY: bucketY.value }, { rotate: `${bucketRotate.value}deg` }] as any
     }));
 
     return (

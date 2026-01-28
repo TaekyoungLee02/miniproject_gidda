@@ -83,7 +83,8 @@ export default function IndexingPage() {
     };
 
     const logoAnimatedStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value }]
+        transform: [{ translateY: logoTranslateY.value }, { scale: logoScale.value }
+        ] as any
     }));
 
     return (

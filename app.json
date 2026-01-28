@@ -42,7 +42,12 @@
       ],
       "expo-asset",
       "onnxruntime-react-native",
-      ["expo-sqlite", { "withSQLiteVecExtension": true }]
+      [
+        "expo-sqlite",
+        {
+          "withSQLiteVecExtension": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -51,7 +56,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7de0fe99-9d99-4f53-a975-629de205e419"
+        "projectId": "3b06d4eb-90c9-477d-957b-4bf4d04afb5a"
       }
     }
   }

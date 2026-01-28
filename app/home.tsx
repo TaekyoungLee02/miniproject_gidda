@@ -57,7 +57,7 @@ export default function HomePage() {
                     pathname: '/searching' as any, 
                     params: { 
                         prompt: inputText,
-                        result: analysisResult
+                        result: JSON.stringify(analysisResult)
                     }
                 });
             } 
