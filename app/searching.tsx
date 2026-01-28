@@ -94,9 +94,12 @@ export default function SearchingPage() {
 
         // 2. 🔴 Azure 분석 결과에서 실제 키워드 추출 (Fake 제거)
         let keywordList: string[] = [];
+
         try {
-            const entities = searchResult.entities;
-            const weights = searchResult.weights;
+            // 🛡️ 2. 정밀 방어: entities나 weights가 없으면 '빈 객체 {}'로 대체!
+            // 이렇게 하면 undefined 에러가 절대 나지 않습니다.
+            const entities = searchResult.entities || {}; 
+            const weights = searchResult.weights || {};
 
             // Context, Time, Space 단어 합치기
             // 🆕 [수정] undefined일 경우를 대비해 빈 배열([]) 처리 추가 (안전성 확보)
@@ -157,9 +160,12 @@ export default function SearchingPage() {
             });
 
         } catch (error) {
-            console.error("검색 프로세스 오류:", error);
+            console.error("❌ 검색 프로세스 오류:", error);
+            // 에러 로그를 좀 더 자세히 보고 싶다면 아래 주석 해제
+            console.log("문제의 데이터:", JSON.stringify(searchResult, null, 2));
+        
             if (shuffleInterval) clearInterval(shuffleInterval);
-            router.back(); // 에러 발생 시 뒤로가기
+            router.back();
         }
     };
 

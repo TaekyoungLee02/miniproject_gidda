@@ -63,6 +63,7 @@ export default function SavePage() {
     }, [userPrompt]);
 
     // --- 기존 로직 (건들지 않음) ---
+    //sortBy: [[MediaLibrary.SortBy.creationTime, true]] // true = 오름차순 (옛날 -> 최신)
     const handleNewSearchSession = async (tagName: string) => {
         setActiveTags(prev => [tagName, ...prev.filter(t => t !== tagName)].slice(0, 5));
         const { assets } = await MediaLibrary.getAssetsAsync({ first: 50, sortBy: ['creationTime'] });

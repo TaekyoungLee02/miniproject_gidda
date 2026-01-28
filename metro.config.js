@@ -1,8 +1,8 @@
-// Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
 
-/** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
-config.resolver.assetExts.push("onnx", "data");
+// 👇 이 부분이 없으면 죽어도 안 됩니다!
+config.resolver.assetExts.push('onnx', 'data');
+
 module.exports = config;

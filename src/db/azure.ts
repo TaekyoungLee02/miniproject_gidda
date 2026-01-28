@@ -109,18 +109,22 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<LocationRe
     // (api-key 헤더 제거됨 -> 서버가 처리함)
     const response = await axios.post(PROXY_URL, payload);
 
-   if (response.status !== 200) {
-    console.error('❌ [Azure] API 호출 오류:', response.data);
-    throw new Error(`Azure API Error: ${response.status}`);
+    // 🔥 [디버깅] 서버가 성공적으로 답을 줬는지 원본 확인
+    console.log(`🔥 [Proxy 응답 - ID:${photo.id}]:`, response.data);
+
+    if (response.status !== 200) {
+        console.error('❌ [Azure] API 호출 오류:', response.data);
+        throw new Error(`Azure API Error: ${response.status}`);
     }
 
     // Axios는 response.data가 이미 JSON 객체임
     const data = response.data;
-    // Azure 응답 구조 파싱 (choices[0].message.content)
-    const inferredLocation = data.choices[0]?.message?.content?.trim();
+    // 2. [수정됨] Azure 응답 구조 파싱 (호환성 강화)
+    // Proxy 서버가 주는 키('resp')와 Azure 기본 키('choices') 둘 다 확인해서 있는 걸 씁니다.
+    const inferredLocation = data.resp || data.choices?.[0]?.message?.content?.trim();
 
     if (!inferredLocation) {
-        throw new Error("Azure 응답이 비어있습니다.");
+        throw new Error("Azure 응답이 비어있습니다 (resp/choices missing).");
     }
 
     // 🆕 JSON 파싱 (문자열 -> 객체 변환)
@@ -130,7 +134,12 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<LocationRe
     // 파싱 시도
     let result: LocationResult;
     try {
-        result = JSON.parse(cleanJson);
+        // 혹시 이미 객체라면 바로 할당
+        if (typeof cleanJson === 'object') {
+            result = cleanJson;
+        } else {
+            result = JSON.parse(cleanJson);
+        }
     } catch (e) {
         console.error("JSON 파싱 실패. 원본 응답:", cleanJson);
         return null;
@@ -146,9 +155,15 @@ export const identifyLocationFromTags = async (photo: Photo): Promise<LocationRe
     return result;
 
   } catch (error: any) {
-    console.error('❌ [Azure Proxy] 위치 추론 중 에러 발생:', error.message || error);
+    // 🚨 [여기가 중요!] 500 에러의 진짜 이유를 보여줍니다.
+    console.error(`❌ [Azure Proxy] 요청 실패 (ID: ${photo.id})`);
+    
     if (error.response) {
-        console.error("Server Response:", error.response.data);
+        // 서버가 보낸 '유언' 출력
+        console.log("🔥 [서버 상태 코드]:", error.response.status);
+        console.log("🔥 [서버 에러 메시지]:", JSON.stringify(error.response.data, null, 2));
+    } else {
+        console.error("❌ 네트워크 오류 또는 서버 응답 없음:", error.message);
     }
     return null;
   }

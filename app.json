@@ -4,19 +4,22 @@
     "slug": "gidda",
     "version": "1.0.0",
     "orientation": "portrait",
+    "//": "👇 1. 전체 기본 아이콘 (여기 경로를 네 이미지로 바꿔!)",
     "icon": "./assets/images/icon.png",
+
     "scheme": "gidda",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ctrlf.gidda"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#f2f2f2"
+        
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

@@ -62,37 +62,73 @@ export const tagAddress = async (photos: Photo[]) =>
                 ]
             };
 
+            
+
             // ✅ [변경점 4] Axios를 사용하여 Proxy로 POST 요청
             // (api-key 헤더 제거됨 -> 서버가 처리함)
             const response = await axios.post(PROXY_URL, payload);
 
-            console.log(`response ${JSON.stringify(response.data.resp)}`);
+            /// 1. 응답 로그 확인
+            //console.log("🔥 [Proxy 응답 원본]:", response.data);
 
             if (response.status != 200) {
                 console.error('❌ [Azure] API 호출 오류:', response.data);
                 throw new Error(`Azure API Error: ${response.status}`);
             }
-            //
-            // const data = JSON.stringify(response.data);
-            //
-            // if (!data) {
-            //     throw new Error("Azure 응답이 비어있습니다.");
-            // }
 
-            const parsed = JSON.parse(response.data.resp);
+            const rawResp = response.data?.resp; 
+
+            // 2. parsed 변수 선언 (여기서 딱 한 번만 선언해야 함!)
+            let parsed; 
+
+            if (!rawResp) {
+                // resp가 없으면 에러
+                console.error("❌ [Azure] 응답에 'resp' 필드가 없습니다. 전체 응답:", response.data);
+                throw new Error("Azure 응답 형식 오류 (resp missing)");
+            }
+
+            // 3. 타입에 따라 처리
+            if (typeof rawResp === 'object') {
+                console.log("ℹ️ [Azure] 응답이 이미 JSON 객체입니다.");
+                parsed = rawResp;
+            } else if (typeof rawResp === 'string') {
+                try {
+                    parsed = JSON.parse(rawResp);
+                } catch (jsonError) {
+                    console.error("❌ [Azure] JSON 파싱 실패. 응답이 문자열이지만 JSON이 아닙니다.");
+                    console.error("실제 값:", rawResp);
+                    throw jsonError;
+                }
+            } else {
+                throw new Error(`알 수 없는 응답 타입: ${typeof rawResp}`);
+            }
+            // console.log(`response ${JSON.stringify(response.data.resp)}`);
+
+            // if (response.status != 200) {
+            //     console.error('❌ [Azure] API 호출 오류:', response.data);
+            //     throw new Error(`Azure API Error: ${response.status}`);
+            // }
+            // //
+            // // const data = JSON.stringify(response.data);
+            // //
+            // // if (!data) {
+            // //     throw new Error("Azure 응답이 비어있습니다.");
+            // // }
 
             console.log(`parsed : `, parsed)
 
             // unknown 처리
             if (parsed.name === 'unknown') {
                 console.log(`🤷‍♂️ [Azure] 위치 특정 실패 (unknown)`);
-                return null;
+                photos[i].address = "unknown"; // 실패했다고 표시
+                continue; // ✅ [수정 3] return null 대신 continue로 변경 (다음 사진 진행)
             }
 
             console.log(`🧠 [Azure] 추론 성공: ${parsed.name} (${parsed.latitude}, ${parsed.longitude})`);
-            photos[i].address = parsed.address as string;
+            // ✅ [수정 2] parsed.address는 존재하지 않음(undefined). parsed.name을 저장해야 함!
+            photos[i].address = parsed.name;
         }
-        catch (e)
+        catch (e: any)
         {
             console.error('❌ [Azure Proxy] 위치 추론 중 에러 발생:', e.message || e);
             if (e.response) {

@@ -98,7 +98,12 @@ export class PhotoDatabaseService
     {
         const context = SearchType.Context;
 
-        const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
+        // 🛠️ [수정 후] 배열인지 확인하고 처리 (안전장치 추가)
+        const queryText = Array.isArray(entities[context]) 
+            ? entities[context].join(" ")       // 배열이면 공백으로 합침
+            : String(entities[context] || "");  // 문자열이거나 없으면 문자열로 변환
+        const selectedPhotos = await this.vectorStore.similaritySearch(queryText, DISTANCE_THRESHOLD);
+        //const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
 
         // const pt = selectedPhotos.map((item) => item.photo);
         //

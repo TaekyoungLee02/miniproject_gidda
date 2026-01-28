@@ -52,7 +52,9 @@ export const getGalleryPhotosSync = async function* () {
     // 이번 동기화에서 가장 최신 사진의 시간을 기록할 변수
     let maxTimestamp = lastTime; 
 
-    for(let i = 0; i < 1; i ++) {
+    // 🛠️ [수정 1] for문(1회 실행) -> while문(계속 실행)으로 변경
+    // hasNextPage가 true인 동안 계속 반복합니다.
+    while (hasNextPage) {
       const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
       gallery_photos_amount = assets.totalCount;
       
@@ -60,47 +62,45 @@ export const getGalleryPhotosSync = async function* () {
         break;
       }
 
-      console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
+      console.log(`📸 [Sync] ${assets.assets.length}장 발견! (${totalSaved + assets.assets.length} / ${assets.totalCount})`);
 
-      totalSaved += 50;
+      // 🛠️ [수정 2] 현재 배치의 가장 마지막(최신) 사진 시간을 기록
+      // (과거->현재 정렬이므로 배열의 마지막이 가장 최신입니다)
+      const lastPhotoInBatch = assets.assets[assets.assets.length - 1];
+      if (lastPhotoInBatch.creationTime) {
+          // 혹시 순서가 섞일 수 있으니 max값 비교
+          maxTimestamp = Math.max(maxTimestamp, lastPhotoInBatch.creationTime);
+      }
+
+      totalSaved += assets.assets.length;
       yield assets.assets as MediaLibrary.Asset[];
-      // DB 저장 로직 외부 구현.
-
-      // for (const asset of assets.assets) {
-      //   const assetAny = asset as any;
-      //   const location = assetAny.location;
-      //   const creationTime = asset.creationTime || Date.now(); // 보통 timestamp(ms)
-      //
-      //   // DB 저장
-      //   const photoData: Photo = {
-      //     id: String(asset.id),
-      //     local_uri: asset.uri,
-      //     captured_at: creationTime,
-      //     width: asset.width,
-      //     height: asset.height,
-      //     latitude: location ? location.latitude : null,
-      //     longitude: location ? location.longitude : null,
-      //     address: null,
-      //     ai_tags: null,
-      //   };
-      //
-      //
-      //
-      //   await insertPhoto(photoData);
-      //   totalSaved++;
-      //
-      //   // 가장 최신 시간 갱신 (더 미래의 시간이 나오면 업데이트)
-      //   if (creationTime > maxTimestamp) {
-      //     maxTimestamp = creationTime;
-      //   }
-      // }
-
+      
       hasNextPage = assets.hasNextPage;
       if (hasNextPage) {
-        // 페이징은 여전히 cursor를 사용 (createdAfter가 필터링해준 목록 내에서의 페이징)
+        // 페이징 커서 업데이트 (다음 50장을 가져오기 위함)
         assetsOptions.after = assets.endCursor;
       }
     }
+    
+    // for(let i = 0; i < 1; i ++) {
+    //   const assets = await MediaLibrary.getAssetsAsync(assetsOptions);
+    //   gallery_photos_amount = assets.totalCount;
+      
+    //   if (assets.totalCount === 0 || assets.assets.length === 0) {
+    //     break;
+    //   }
+
+    //   console.log(`📸 [Sync] ${assets.assets.length}장 발견! DB 저장 중...`);
+
+    //   totalSaved += 50;
+    //   yield assets.assets as MediaLibrary.Asset[];
+      
+    //   hasNextPage = assets.hasNextPage;
+    //   if (hasNextPage) {
+    //     // 페이징은 여전히 cursor를 사용 (createdAfter가 필터링해준 목록 내에서의 페이징)
+    //     assetsOptions.after = assets.endCursor;
+    //   }
+    // }
 
     // 3.  가장 최신 사진의 시간을 저장 (다음엔 이 시간이후부터 검색)
     // 단, 사진을 한 장이라도 저장했을 때만 갱신
