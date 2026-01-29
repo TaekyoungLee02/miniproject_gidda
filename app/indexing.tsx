@@ -151,7 +151,7 @@ export default function IndexingPage() {
                         <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
                     </View>
 
-                    <Text style={styles.progressText}>{progress}%</Text>
+                    <Text style={styles.progressText}>{progress.toFixed(1)}%</Text>
                 </View>
             </View>
 
