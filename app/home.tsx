@@ -45,7 +45,7 @@ export default function HomePage() {
         if (!inputText.trim()) return;
         
         setIsLoading(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // 피드백 추가
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Sauccess); // 피드백 추가
 
         try {
             // 1. Azure 분석 함수 호출

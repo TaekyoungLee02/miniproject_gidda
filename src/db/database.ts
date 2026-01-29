@@ -382,12 +382,13 @@ export const addPhotosToAlbum = async (albumId: number, photoIds: string[]): Pro
     // const statements = photoIds.map(() => 
     //   `INSERT OR IGNORE INTO album_photos (album_id, photo_id) VALUES (?, ?);`
     // );
-    
+    console.log(``, photoIds)
+
     // 비동기 병렬 처리
     await Promise.all(
       photoIds.map(photoId => 
         db.runAsync(
-          `INSERT OR IGNORE INTO album_photos (album_id, photo_id) VALUES (?, ?);`,
+          `INSERT OR REPLACE INTO album_photos (album_id, photo_id) VALUES (?, ?);`,
           [albumId, photoId]
         )
       )

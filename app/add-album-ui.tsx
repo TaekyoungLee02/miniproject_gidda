@@ -1,19 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, Alert, AlertButton, Modal, TextInput } from 'react-native'; // 🛠️ [수정] AlertButton 타입 추가
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ArrowLeft, Folder, Play, Plus, Sparkles, X } from 'lucide-react-native';
+import * as Database from '@/src/db/database'
 
 // ✅ [연결] 백엔드 DB 함수 및 인터페이스 통합
 import { getAlbums, createAlbum, AlbumSummary, getAllPhotos } from '../src/db/database';
 // ✅ [연결] AI 제목 생성 서비스 통합
 import { generateAlbumTitles } from '../src/api/AzureService';
+import {Photo} from "../src/lib/types";
 
 const { width } = Dimensions.get('window');
 
 export default function AddAlbumUIPage() {
     const router = useRouter();
+    const params = useLocalSearchParams();
+
+
+    // 🔴 [수정] searching.tsx에서 넘어온 실제 검색 결과 데이터 파싱
+    const incomingPhotos: Photo[] = JSON.parse(params.selected);
 
     // 상태 관리 (Done 버전의 핵심 로직)
     const [albums, setAlbums] = useState<AlbumSummary[]>([]);
@@ -30,6 +37,13 @@ export default function AddAlbumUIPage() {
 
     // 1. DB에서 실제 앨범 목록 로드
     const loadAlbumData = async () => {
+
+        const albumid = await createAlbum("생성된 앨범");
+
+        console.log(`ip`, incomingPhotos)
+        const ids = incomingPhotos.map((v) => JSON.parse(v).id);
+        await Database.addPhotosToAlbum(albumid, ids);
+
         setIsLoading(true);
         try {
             const data = await getAlbums();
@@ -95,7 +109,7 @@ export default function AddAlbumUIPage() {
             const resultId = await createAlbum(newAlbumTitle);
             if (resultId) {
                 setIsModalVisible(false);
-                setNewAlbumTitle("");
+                setNewAlbumTitle(newAlbumTitle);
                 loadAlbumData(); // 목록 새로고침
                 Alert.alert("완료", "새로운 추억 저장소가 생겼어요! 🎉");
             }

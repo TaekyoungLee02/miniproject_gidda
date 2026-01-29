@@ -136,7 +136,12 @@ export default function SavePageUI() {
             setIsLoadingAI(false);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             showGiddaAlert("앨범 생성 완료", "새로운 추억 앨범이 '생성된 앨범'함에 추가되었습니다.", () => {
-                router.push('/add-album-ui');
+                router.push({
+                    pathname: '/add-album-ui' as any,
+                    params: {
+                        selected: JSON.stringify(selectedPhotos.map((v) => JSON.stringify(v)))
+                    }
+                });
             });
         }, 2000);
     };
