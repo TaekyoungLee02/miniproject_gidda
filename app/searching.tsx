@@ -41,13 +41,7 @@ export default function SearchingPage() {
     const userPrompt = params.prompt as string || "추억";
 
     // 🆕 [수정] null 체크 및 타입 단언을 한 번에 처리
-    const searchResult: SearchAnalysisResult | null = jsonResult 
-        ? JSON.parse(jsonResult) 
-        : null;
-
-    const analysisResult = jsonResult ? JSON.parse(jsonResult) : null;
-    console.log(analysisResult);
-    // Home에서 넘어온 데이터들
+    const searchResult = JSON.parse(params.result) as SearchAnalysisResult;
     
     //const searchResult = JSON.parse(params.result as string) as SearchAnalysisResult;
 
@@ -98,30 +92,17 @@ export default function SearchingPage() {
         try {
             // 🛡️ 2. 정밀 방어: entities나 weights가 없으면 '빈 객체 {}'로 대체!
             // 이렇게 하면 undefined 에러가 절대 나지 않습니다.
-            const entities = searchResult.entities || {}; 
-            const weights = searchResult.weights || {};
+            const entities = searchResult.entities;
+            const weights = searchResult.weights;
 
             // Context, Time, Space 단어 합치기
             // 🆕 [수정] undefined일 경우를 대비해 빈 배열([]) 처리 추가 (안전성 확보)
             // '0', '1', '2'는 Enum(Context, Time, Space)에 해당한다고 가정
             const allWords = [
-                ...(entities["0"] || []), 
-                ...(entities["1"] || []),
-                ...(entities["2"] || [])
+                ...(entities["0"]),
+                ...(entities["1"]),
+                ...(entities["2"])
             ];
-
-            // 🆕 [추가] 가중치(Weights)도 키워드 개수에 맞춰서 쭉 펼쳐줘야 함! (Flatten)
-            // 예: '여행'(Context) 관련 단어가 3개면, Context 가중치도 3번 반복해서 배열에 넣음
-            const allWeights = [
-            ...Array(entities["0"]?.length || 0).fill(weights["0"] ?? 1), // Context 가중치 반복
-            ...Array(entities["1"]?.length || 0).fill(weights["1"] ?? 1), // Time 가중치 반복
-            ...Array(entities["2"]?.length || 0).fill(weights["2"] ?? 1), // Space 가중치 반복
-            ];
-            // const allWords = [
-            //     ...(entities["0"]),
-            //     ...(entities["1"]),
-            //     ...(entities["2"])
-            // ];
             keywordList = allWords.map(word => `#${word}`);
 
             // 화면에 키워드 순차적 표시
@@ -135,7 +116,7 @@ export default function SearchingPage() {
             // 🆕 [수정] 펼쳐진 단어(allWords)와 펼쳐진 가중치(allWeights)를 전달!
             // 만약 여기서도 빨간줄이 뜨면서 'number[]'가 아니라 'string[]'을 원한다고 하면
             // PhotoDatabaseService.ts 파일의 searchPhoto 정의를 확인해야 합니다. (아마 number[]가 맞을 겁니다)
-            const searchPromise = service.searchPhoto(allWords, allWeights);
+            const searchPromise = service.searchPhoto(entities, weights);
             // const searchPromise = service.searchPhoto(entities, weights);
 
             // 최소 애니메이션 시간(4.5초) 보장하면서 검색 수행

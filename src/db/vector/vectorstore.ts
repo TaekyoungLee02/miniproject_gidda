@@ -48,6 +48,10 @@ export class CLIPSQLiteVecStore extends VectorStore
             CREATE VIRTUAL TABLE IF NOT EXISTS ${this.tableName} USING vec0(
                 embedding float[512] distance=cosine
             );
+            
+            CREATE VIRTUAL TABLE IF NOT EXISTS tag_vec USING vec0(
+                embedding float[512] distance=cosine
+            );
         `);
     }
 
@@ -56,7 +60,7 @@ export class CLIPSQLiteVecStore extends VectorStore
         return "sqlite-vec";
     }
 
-    async addVectors(vectors: number[], rowIds : number[], options?: AddDocumentOptions)
+    async addVectors(vectors: number[], rowIds : number[], tableName: string = this.tableName)
     {
         if (!this.db) await this.initialize();
 
@@ -72,10 +76,10 @@ export class CLIPSQLiteVecStore extends VectorStore
         this.db.withTransactionSync(() =>
         {
             const deleteStatement = this.db.prepareSync(`
-                DELETE FROM ${this.tableName} WHERE rowid = ?;
+                DELETE FROM ${tableName} WHERE rowid = ?;
             `);
             const statement = this.db.prepareSync(`
-                INSERT INTO ${this.tableName}(rowid, embedding)
+                INSERT INTO ${tableName}(rowid, embedding)
                 VALUES (?, ?);
             `);
 
@@ -105,6 +109,14 @@ export class CLIPSQLiteVecStore extends VectorStore
         return chunked;
     }
 
+    async addTags(tags: string[], rowIds: number[])
+    {
+        const vectors = await this.textEncoder.runAll(tags, tags.length) as Float32Array[];
+        const chunked = await this.addVectors(vectors, rowIds, 'tag_vec');
+        console.log(`tag vector stored. vector size : `, chunked.length)
+        return chunked;
+    }
+
     async delete(rowIDs: number[])
     {
         if (!this.db) await this.initialize();
@@ -118,7 +130,7 @@ export class CLIPSQLiteVecStore extends VectorStore
         }
     }
 
-    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number)
+    async similaritySearchVectorWithScore(query: number[], threshold : number, k?: number, tableName: string = this.tableName)
     {
         if (!this.db) await this.initialize();
 
@@ -126,7 +138,7 @@ export class CLIPSQLiteVecStore extends VectorStore
                 SELECT 
                     rowid, 
                     distance 
-                FROM ${this.tableName}
+                FROM ${tableName}
                 WHERE embedding MATCH ? 
                     AND k = ?
                     AND distance < ?
@@ -186,5 +198,12 @@ export class CLIPSQLiteVecStore extends VectorStore
         const queryVec = await this.textEncoder.run(query) as Float32Array;
         Database.saveSearchHistory(query);
         return await this.similaritySearchVectorWithScore(queryVec, threshold, k);
+    }
+
+    async similaritySearchByTags(query: string, threshold : number, k?: number)
+    {
+        const queryVec = await this.textEncoder.run(query) as Float32Array;
+        Database.saveSearchHistory(query);
+        return await this.similaritySearchVectorWithScore(queryVec, threshold, k, "tag_vec");
     }
 }

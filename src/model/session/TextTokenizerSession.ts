@@ -60,13 +60,12 @@ export class TextTokenizerSession
     {
         let outputs = []
 
-        for (data of datas)
+        for (const data of datas)
         {
             this.currentInput = new ort.Tensor('string', Array<string>(data));
             const output = await this.session.run({ [this.inputName] : this.currentInput });
-            outputs.push(this.pad(output[this.outputName][this.outputDeviceName]))
+            outputs.push(this.pad(output[this.outputName][this.outputLocationName]))
         }
-
         return outputs;
     }
 }

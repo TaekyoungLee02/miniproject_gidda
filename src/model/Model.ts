@@ -98,6 +98,26 @@ export class TextEncoder extends Session.ModelInferenceSession
         return await super.run(data);
     }
 
+    async runAll(input : string[], batchSize : number)
+    {
+        if (!this.tokenizer.session) await this.tokenizer.initialize();
+        let inputs : bigint[];
+        let data = await this.tokenizer.runEnumerate(input) as number[];
+
+        for (const vector of data)
+        {
+            if (inputs)
+            {
+                inputs = [...inputs, ...vector]
+            }
+            else
+            {
+                inputs = [...vector]
+            }
+        }
+        return await super.runAll(inputs, batchSize);
+    }
+
     async runEnumerate(input : string[])
     {
         if (!this.tokenizer.session) await this.tokenizer.initialize();

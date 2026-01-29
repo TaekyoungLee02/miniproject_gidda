@@ -2,7 +2,7 @@ import * as MediaLibrary from 'expo-media-library'
 import * as Database from "@/src/db/database"
 import * as Sync from "@/src/db/syncService"
 import { CLIPSQLiteVecStore } from "@/src/db/vector/vectorstore"
-import { DATABASE_NAME, DISTANCE_THRESHOLD } from "@/src/lib/constants/constants"
+import { DATABASE_NAME, DISTANCE_THRESHOLD, DISTANCE_THRESHOLD_SPACE } from "@/src/lib/constants/constants"
 import { Photo } from "@/src/lib/types/photo"
 import { LabelTagger } from "@/src/model/LabelTagger";
 import { tagAddress } from "@/src/api/azure";
@@ -72,14 +72,20 @@ export class PhotoDatabaseService
                         photos[i].ai_tags = tag_joined[i];
                     }
 
+                    const tagged_photos = photos.filter((p, i, a) => p.ai_tags != "");
+
+                    const tags = tagged_photos.map((v) => v.ai_tags);
+                    const ids = tagged_photos.map((v) => Number(v.id));
                     console.log(`photo tag inserted`);
-                    return photos;
+
+                    return this.vectorStore.addTags(tags, ids);
                 })
                 // get address hints from azure
-                .then(value => {
-                    const addresslessItems = value.filter((value) =>
+                .then(value =>
+                {
+                    const addresslessItems = photos.filter((photo) =>
                     {
-                        return !value.latitude;
+                        return !photo.latitude;
                     });
 
                     return tagAddress(addresslessItems);
@@ -98,12 +104,32 @@ export class PhotoDatabaseService
     {
         const context = SearchType.Context;
 
-        // 🛠️ [수정 후] 배열인지 확인하고 처리 (안전장치 추가)
-        const queryText = Array.isArray(entities[context]) 
-            ? entities[context].join(" ")       // 배열이면 공백으로 합침
-            : String(entities[context] || "");  // 문자열이거나 없으면 문자열로 변환
-        const selectedPhotos = await this.vectorStore.similaritySearch(queryText, DISTANCE_THRESHOLD);
-        //const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
+        // const weight_numbers : number[] = [];
+        // weight_numbers.push(weights["0"]);
+        // weight_numbers.push(weights["1"]);
+        // weight_numbers.push(weights["2"]);
+        //
+        // const max = Math.max(...weight_numbers);
+        // const maxIndex = weight_numbers.indexOf(max);
+        //
+        // let selectedPhotos;
+        //
+        // switch (maxIndex)
+        // {
+        //     case SearchType.Context:
+        //         selectedPhotos = await this.vectorStore.similaritySearch(entities[maxIndex], DISTANCE_THRESHOLD);
+        //         break;
+        //
+        //     case SearchType.Time:
+        //         selectedPhotos = await Database.searchPhotoByTime(entities[maxIndex])
+        //         break;
+        //
+        //     case SearchType.Space:
+        //         selectedPhotos = await this.vectorStore.similaritySearchByTags(entities[maxIndex], DISTANCE_THRESHOLD_SPACE);
+        //         break;
+        // }
+
+        const selectedPhotos = await this.vectorStore.similaritySearch(entities[context].join(" "), DISTANCE_THRESHOLD);
 
         // const pt = selectedPhotos.map((item) => item.photo);
         //

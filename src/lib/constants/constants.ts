@@ -25,6 +25,7 @@ export const IMG_BUFFER_SIZE : number = 196608;
 export const DATABASE_NAME : string = 'photos.db';
 
 export const DISTANCE_THRESHOLD : number = 0.84
+export const DISTANCE_THRESHOLD_SPACE : number = 0.9
 
 /**
  * 앱 시작 시 화면에 띄워줄 예시 검색어들입니다.

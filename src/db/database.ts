@@ -32,13 +32,13 @@ export const initDB = async (): Promise<void> => {
 
     // 2. 🆕 MobileCLIP 벡터 전용 테이블 추가
     // 사진 ID와 1:1 매칭되며, 실제 512차원 행렬(embedding)을 저장함
-    db.execSync(`
-      CREATE TABLE IF NOT EXISTS photo_embeddings (
-        photo_id TEXT PRIMARY KEY NOT NULL,
-        embedding BLOB NOT NULL, -- 512 * 4bytes (Float32) = 2048 bytes
-        FOREIGN KEY (photo_id) REFERENCES photos (id) ON DELETE CASCADE
-      );
-    `);
+    // db.execSync(`
+    //   CREATE TABLE IF NOT EXISTS photo_embeddings (
+    //     photo_id TEXT PRIMARY KEY NOT NULL,
+    //     embedding BLOB NOT NULL, -- 512 * 4bytes (Float32) = 2048 bytes
+    //     FOREIGN KEY (photo_id) REFERENCES photos (id) ON DELETE CASCADE
+    //   );
+    // `);
 
     // 2. 🆕 [신규] 앨범 테이블 (앨범 제목 저장)
     db.execSync(`
@@ -302,6 +302,32 @@ export const updatePhotoLocation = async (
     console.error(`❌ [DB] 위치 업데이트 실패 (ID: ${id}):`, error);
   }
 };
+
+export const searchPhotoByTime = async (query: string) =>
+{
+  const queryy = `SELECT datetime('%Y-%m', 1747096962124 / 1000, 'unixepoch', 'localtime') FROM photos WHERE strftime('%Y-%m', captured_at / 1000, 'unixepoch', 'localtime') = '2025-05'`;
+  const queryym = `SELECT * FROM photos WHERE strftime('%Y-%m', datetime(1747096962124 / 1000, 'unixepoch', 'localtime'), 'unixepoch', 'localtime') = ?`;
+  const queryymd = `SELECT * FROM photos WHERE strftime('%Y-%m-%d', captured_at / 1000, 'unixepoch', 'localtime') = ?`;
+
+  if (query.length <= 4)
+  {
+    const rows = db.getAllSync<Photo>(queryy, [query]);
+    console.log(`1`, rows);
+    return rows;
+  }
+  else if (query.length <= 7)
+  {
+    const rows = db.getAllSync<Photo>(queryym, [query]);
+    console.log(`2`, rows);
+    return rows;
+  }
+  else
+  {
+    const rows = db.getAllSync<Photo>(queryymd, [query]);
+    console.log(`3`, rows);
+    return rows;
+  }
+}
 
 /**
  * 🆕 [추가] MobileCLIP이 분석한 태그를 DB에 저장하는 함수
