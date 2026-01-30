@@ -32,7 +32,6 @@ export const getGalleryPhotosSync = async function* () {
       mediaType: 'photo',
       // 최신순으로 정렬하지 말고, "오래된 순(CreationTime)"으로 정렬해야
       // 과거 -> 현재 순서대로 차곡차곡 쌓임
-      sortBy: [MediaLibrary.SortBy.creationTime], 
       
       // ⭐ 핵심: 이 시간 이후에 찍은 사진만 다 가져와!
       createdAfter: lastTime, 

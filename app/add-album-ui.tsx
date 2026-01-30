@@ -18,10 +18,6 @@ export default function AddAlbumUIPage() {
     const router = useRouter();
     const params = useLocalSearchParams();
 
-
-    // 🔴 [수정] searching.tsx에서 넘어온 실제 검색 결과 데이터 파싱
-    const incomingPhotos: Photo[] = JSON.parse(params.selected);
-
     // 상태 관리 (Done 버전의 핵심 로직)
     const [albums, setAlbums] = useState<AlbumSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -32,17 +28,16 @@ export default function AddAlbumUIPage() {
     const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
-        loadAlbumData();
+        const entrance = async () =>
+        {
+            if (params.selected != undefined) await addAlbum();
+            loadAlbumData();
+        }
+        entrance();
     }, []);
 
     // 1. DB에서 실제 앨범 목록 로드
     const loadAlbumData = async () => {
-
-        const albumid = await createAlbum("생성된 앨범");
-
-        console.log(`ip`, incomingPhotos)
-        const ids = incomingPhotos.map((v) => JSON.parse(v).id);
-        await Database.addPhotosToAlbum(albumid, ids);
 
         setIsLoading(true);
         try {
@@ -56,18 +51,35 @@ export default function AddAlbumUIPage() {
         }
     };
 
+    const addAlbum = async () => {
+        const incomingPhotos: Photo[] = JSON.parse(params.selected);
+        const albumid = await createAlbum("나의 앨범");
+
+        console.log(`ip`, incomingPhotos)
+        const ids = incomingPhotos.map((v) => JSON.parse(v).id);
+        await Database.addPhotosToAlbum(albumid, ids);
+    }
+
     // ✨ 2. AI 제목 추천 로직 (Azure 연동)
     const handleAiRecommend = async () => {
         setIsGenerating(true);
         try {
-            const allPhotos = await getAllPhotos();
-            const hints = allPhotos.slice(0, 10).map(p => `[${p.address || ''}] ${p.ai_tags || ''}`).join(', ');
+            const incomingPhotos: Photo[] = JSON.parse(params.selected);
+            console.log(`incomingPhotos: ` , incomingPhotos)
+            const hints = incomingPhotos.slice(0, 10).map(p => {
+                const ph = JSON.parse(p);
+                return (`[${ph.address}] ${ph.ai_tags}`).join(', ');
+            });
 
             if (!hints) {
                 return Alert.alert("알림", "분석할 사진 데이터가 부족해요!");
             }
 
+            console.log(`hints: ` , hints)
             const titles = await generateAlbumTitles(hints);
+
+            console.log(`TITLE: ` , titles[0])
+            return titles[0];
 
             // 🛠️ [수정] Alert 버튼 타입 오류 해결
             // 배열을 합칠 때 타입을 명시적으로 지정하여 TypeScript 오류 방지

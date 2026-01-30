@@ -93,7 +93,7 @@ export default function HomePage() {
                             <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-photo'); }}>
                                 <View style={styles.menuIconText}>
                                     <Save color="#F38A2C" size={20} />
-                                    <Text style={styles.menuItemText}>사진 저장</Text>
+                                    <Text style={styles.menuItemText}>최근 사진</Text>
                                 </View>
                                 <Play color="#F38A2C" size={14} fill="#F38A2C" />
                             </TouchableOpacity>

@@ -55,12 +55,12 @@ export default function SearchingPage() {
     useEffect(() => {
         // 1. 양동이(물 긷기) 애니메이션: 위아래로 움직이며 살짝 흔들림
         bucketY.value = withRepeat(
-            withTiming(10, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(10, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
             -1,
             true
         );
         bucketRotate.value = withRepeat(
-            withTiming(10, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+            withTiming(10, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
             -1,
             true
         );

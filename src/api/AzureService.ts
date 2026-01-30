@@ -4,7 +4,7 @@ import { SearchType } from '../lib/enums/enums';
 import axios from "axios";
 
 // 1. Firebase Proxy 서버 주소 (환경변수에서 가져오기)
-const PROXY_URL = process.env.EXPO_PUBLIC_API_URL || "";
+const PROXY_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisResult | null> => {
   try {
@@ -94,6 +94,7 @@ export const analyzeUserSearch = async (query: string): Promise<SearchAnalysisRe
 export const generateAlbumTitles = async (photoData: string): Promise<string[]> => {
   try {
     // 여기도 axios.post로 교체
+    console.log(`rrrrrrrr`, response.data);
     const response = await axios.post(PROXY_URL, {
       messages: [
         { role: "system", content: ALBUM_TITLE_PROMPT },
@@ -102,6 +103,8 @@ export const generateAlbumTitles = async (photoData: string): Promise<string[]> 
       response_format: { type: "json_object" },
       temperature: 0.8, // 창의적인 제목을 위해 온도를 조금 높입니다!
     });
+
+    console.log(`rrrrrrrr`, response.data);
     const data = response.data;
     const result = data.choices?.[0]?.message?.content;
 

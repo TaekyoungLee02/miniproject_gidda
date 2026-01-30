@@ -120,7 +120,9 @@ export default function SavePageUI() {
             
             showGiddaAlert("저장 완료", "선택한 사진이 '즐겨찾기' 앨범에 저장되었습니다.", () => {
                 setSelectedPhotos([]);
-                router.push('/add-photo'); 
+                router.push({
+                    pathname: '/add-album-ui' as any,
+                });
             });
 
         } catch (error) {
@@ -162,7 +164,7 @@ export default function SavePageUI() {
                     <View style={styles.sidebarHeader}><Text style={styles.sidebarHeaderTitle}>Your Memories</Text></View>
                     <View style={styles.menuList}>
                         <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-photo'); }}>
-                            <Text style={styles.menuItemText}>사진 저장</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
+                            <Text style={styles.menuItemText}>최근 사진</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/add-album-ui'); }}>
                             <Text style={styles.menuItemText}>생성된 앨범</Text><Play color="#F38A2C" size={14} fill="#F38A2C" />

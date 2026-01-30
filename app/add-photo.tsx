@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { ArrowLeft, Share2, Check } from 'lucide-react-native';
 import * as MediaLibrary from 'expo-media-library';
+import {Photo} from "../src/lib/types";
 
 const { width } = Dimensions.get('window');
 
