@@ -33,7 +33,7 @@
 ---
 
 ## 🚀 바로 체험하기 (Android APK)
-* **[📥 APK 다운로드 (Google Drive)]("https://drive.google.com/file/d/1dEKrah0hGSsI8-uru2wdd57Rcsx1d71h/view?usp=sharing")**
+* **[📥 APK 다운로드 (Google Drive)](https://drive.google.com/file/d/1dEKrah0hGSSi8-uru2wdd57Rcsx1d71h/view?usp=sharing)****[📥 APK 다운로드 (Google Drive)]("https://drive.google.com/file/d/1dEKrah0hGSsI8-uru2wdd57Rcsx1d71h/view?usp=sharing")**
 
 ---
 
