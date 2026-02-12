@@ -1,4 +1,4 @@
-# <img src="https://github.com/TaekyoungLee02/miniproject_gidda/raw/main/assets/icon.png" width="40"> GIDDA (긷다) - AI 지능형 사진 관리 서비스
+# <img src="assets/images/icon.png" width="40"> GIDDA (긷다) - AI 지능형 사진 관리 서비스
 
 <p align="left">
   <img src="https://img.shields.io/badge/React%20Native-61DAFB?style=for-the-badge&logo=react&logoColor=black">
@@ -21,8 +21,14 @@
 ---
 
 ## 📺 프로젝트 시연 영상
+
 <p align="left">
-  <a href="https://youtube.com/shorts/1BlN9dUmyt8?si=cazIlqZkM411Ithp">
+  <a href="https://youtube.com/shorts/1BlN9dUmyt8">
+    <img src="https://img.youtube.com/vi/1BlN9dUmyt8/0.jpg" width="600" alt="GIDDA 시연 영상">
+  </a>
+</p>
+
+> 👆 **이미지를 클릭하면 유튜브 시연 영상으로 이동합니다!**
 
 ---
 
